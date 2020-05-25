@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+#
+#
+# Copyright (c) 2008-2019 the MRtrix3 contributors.
+#
+#   dStripe -- DWI STRIPE CORRECTION TOOL
+#
+#   dwimotioncorrect: directory equivalent to dwimotioncorrect temporary directory
+#   output: stripe correction field, optionally destriped reconstruction and source prediction
+#
+#   Author:  Max Pietsch
+#            King's College London
+#            maximilian.pietsch@kcl.ac.uk
+#
+
+import os
+import sys
+DSTRIPE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(DSTRIPE_DIR)
+import mrtrix3
+import dstripe
+
+# ________ network parameters ________
+DEVICE = '0'
+BATCH_SIZE = 1
+BUTTERWORTH_SAMPLES_CUTOFF = 0.65625
+MODEL = os.path.join(DSTRIPE_DIR, 'models/dstripe_2019_07_03-31_v2.pth.tar.json')
+
+eval_stripes = [sys.executable, os.path.join(DSTRIPE_DIR, 'dstripe', 'eval_stripes3.py')]
+mrffs = [sys.executable, os.path.join(DSTRIPE_DIR, 'dstripe', 'mrffs.py')]
+
+def usage(cmdline):
+    from mrtrix3 import app
+    cmdline.set_author('Max Pietsch (maximilian.pietsch@kcl.ac.uk)')
+    cmdline.set_synopsis('Correct slice modulation artefacts in a DWI series image')
+    cmdline.add_description('part of dStripe. output: multiplicative modulation field')
+    cmdline.add_argument('input', help='The input diffusion MRI series')
+    cmdline.add_argument('mask', help='mask')
+    cmdline.add_argument('output', help='The output intensity modulation field')
+    cmdline.add_argument('-corrected', help='The corrected DWI image series')
+    model_options = cmdline.add_argument_group('Model options')
+    model_options.add_argument('-model', help='json defining model parameters, default: '+MODEL, default=MODEL)
+    model_options.add_argument('-device', help='device: "cpu" or comma separated GPU number, default: ' + DEVICE, default=DEVICE)
+    model_options.add_argument('-batch_size', help='batch_size, default: {}'.format(BATCH_SIZE), type=int, default=BATCH_SIZE)
+    model_options.add_argument('-butterworth_samples_cutoff', help='BW filter cutoff frequency, default: {}'.format(BUTTERWORTH_SAMPLES_CUTOFF),
+                               type=float, default=BUTTERWORTH_SAMPLES_CUTOFF)
+    cmdline.add_example_usage('Compute the modulation field', 'dwidestripe dwi.mif field.mif')
+    app.add_dwgrad_import_options(cmdline)
+
+
+def destripe():
+    # pip install -e dstripe/utils/batchgen
+    from mrtrix3 import MRtrixError
+    from mrtrix3 import app, image, path, run
+    import shlex, subprocess
+
+    def destripe_job(cmd):
+        if isinstance(cmd, str):
+            cmd = shlex.split(cmd)
+        if hasattr(app.ARGS, 'cont') and app.ARGS.cont:
+            app.console('skipping (assuming continue) '.join(cmd))
+            return
+        app.console(' '.join(cmd))
+        try:
+            p = subprocess.Popen(cmd)
+            p.wait()
+        except subprocess.CalledProcessError:
+            print(' '.join(cmd))
+        finally:
+            if p.returncode != 0:
+                raise MRtrixError("failed with return code " + str(p.returncode))
+            else:
+                with open(app.SCRATCH_DIR+'/log.txt', 'a') as f:
+                    f.write(' '.join(cmd)+'\n')
+
+    # run dstripe.eval_stripes3
+    cmd = eval_stripes + [
+        app.ARGS.model,
+        'nn/amp.mif',
+        'nn/mask.mif',
+        '--butterworth_samples_cutoff=' + str(app.ARGS.butterworth_samples_cutoff),
+        '--outdir=' + app.SCRATCH_DIR,
+        '--verbose=0',
+        '--batch_size=' + str(app.ARGS.batch_size),
+        '--write_field=true',
+        '--write_corrected=false',
+        '--slice_native=false',
+        '--attention'
+    ]
+
+    cmd += ["--device=" + app.ARGS.device]
+    # if app.ARGS.checkpoint:
+    #     cmd += ["--checkpoint", app.ARGS.checkpoint]
+    destripe_job(cmd)
+
+
+def execute():  # pylint: disable=unused-variable
+    from mrtrix3 import MRtrixError
+    from mrtrix3 import app, image, path, run
+
+    # ________ check inputs and outputs
+    def check_input_path(path):
+        if not os.path.isfile(path):
+            raise MRtrixError('input path not found: ' + path)
+    dwi_header = image.Header(path.from_user(app.ARGS.input, False))
+    if len(dwi_header.size()) != 4:
+        raise MRtrixError('Input image must be a 4D image')
+    n_vols = dwi_header.size()[3]
+
+    gradimport = app.read_dwgrad_import_options()
+    if not gradimport and 'dw_scheme' not in dwi_header.keyval():
+        raise MRtrixError('No diffusion gradient table provided, and none present in image header')
+    app.check_output_path(app.ARGS.output)
+
+    if app.ARGS.corrected:
+        app.check_output_path(app.ARGS.corrected)
+
+    # network stuff
+    if not app.ARGS.model.endswith('.pth.tar.json'):
+        raise MRtrixError('model extension: .pth.tar.json')
+    check_input_path(app.ARGS.model)
+    check_input_path(app.ARGS.model[:-5])
+    model_name = os.path.split(app.ARGS.model)[1][:-13]
+    app.console('model: ' + model_name)
+    if app.ARGS.device.lower() != 'cpu' and not all([d.isnumeric() for d in app.ARGS.device.split(',')]):
+        raise MRtrixError('Device not supported: {}'.format(app.ARGS.device))
+    if n_vols % app.ARGS.batch_size != 0:
+        raise MRtrixError("number of volumes (%i) needs to be divisible by batch size (%i)" %(n_vols, app.ARGS.batch_size))
+
+    # ________ import data
+    app.make_scratch_dir()
+    app.goto_scratch_dir()
+    os.makedirs('nn')
+    run.command('mrconvert ' + path.from_user(app.ARGS.input) + ' ' + path.to_scratch(
+        'nn/amp.mif') + gradimport + ' -strides 0,1,2,3,4 -export_grad_mrtrix ' + path.to_scratch('grad'))
+    # app.console('bvalues: ' + str(image.mrinfo('in/dwi.mif', 'shell_bvalues').split()))
+    run.command('mrconvert ' + path.from_user(app.ARGS.mask) + ' ' + path.to_scratch('nn/mask.mif') + ' -strides 0,1,2,3')
+
+    # ________ run stripe correction
+    destripe()
+    fields = (['eval_' + model_name + '/nn-amp_field_vol_%05i_2.mif' % ivol for ivol in range(n_vols)])
+    run.command('mrcat ' + ' '.join(fields) + ' -axis 3 - | mrconvert - -grad grad -set_property comments "" -datatype float32 amp_field_orig.mif')
+    run.command('rm ' + ' '.join(fields))
+
+    # ________ field correction
+    cmd = mrffs + ['-destriped_is_field', '-no_xyscrub', 'amp_field_orig.mif', 'nn/amp.mif']
+    cmd += ['nn/mask.mif', 'amp_field.mif', '-force', '-no_zclean']
+    cmd += ['-device', 'cpu' if app.ARGS.device.lower() == 'cpu' else app.ARGS.device.split(',')[0]]
+    run.command(' '.join(cmd))
+    run.command('rm ' + 'amp_field_orig.mif')
+
+    # ________ write output
+    run.command('mrconvert amp_field.mif ' + path.from_user(app.ARGS.output),
+                mrconvert_keyval=path.from_user(app.ARGS.input, False), force=app.FORCE_OVERWRITE)
+
+    if app.ARGS.corrected:
+        run.command('mrcalc nn/amp.mif amp_field.mif -mult - | ' 
+                    'mrconvert - -grad grad -set_property comments "" -datatype float32 ' + path.from_user(app.ARGS.corrected),
+                    mrconvert_keyval=path.from_user(app.ARGS.input, False), force=app.FORCE_OVERWRITE)
+
+
+# Execute the script
+mrtrix3.execute()

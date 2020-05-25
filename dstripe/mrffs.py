@@ -22,22 +22,25 @@ from scipy import fftpack
 import torch
 import utils.mif
 from models.layers import MaskFill3D, WeightedSliceFilter, InplaneLowpassFilter3D
-
+from tqdm import tqdm
 #   __________ Setup __________
-HOME = os.path.expanduser('~') + '/'
-os.environ['PATH'] = HOME+'/anaconda3/envs/py3ml3D/bin/:'+HOME+'/mrtrix3_mrreg_standalone/bin:'+os.environ['PATH']
+# HOME = os.path.expanduser('~') + '/'
+# os.environ['PATH'] = HOME+'/anaconda3/envs/py3ml3D/bin/:'+HOME+'/mrtrix3_mrreg_standalone/bin:'+os.environ['PATH']
 
 ### setup mrtrix
-p = subprocess.Popen(['which', 'mrinfo'], stdout=subprocess.PIPE)
-line = p.stdout.readline().decode().strip()
-lib_folder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(line)[0], os.pardir, 'lib')))
-if not os.path.isdir(lib_folder):
-    sys.stderr.write('Unable to locate MRtrix3 Python libraries in {} on (host:{})\n'.format(lib_folder, host))
-    print('\n'.join(sys.path))
-    sys.exit(1)
-sys.path.insert(0, lib_folder)
-from mrtrix3 import app, image, path, run, file
+# p = subprocess.Popen(['which', 'mrinfo'], stdout=subprocess.PIPE)
+# line = p.stdout.readline().decode().strip()
+# lib_folder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(line)[0], os.pardir, 'lib')))
+# if not os.path.isdir(lib_folder):
+#     sys.stderr.write('Unable to locate MRtrix3 Python libraries in {} on (host:{})\n'.format(lib_folder, host))
+#     print('\n'.join(sys.path))
+#     sys.exit(1)
+# sys.path.insert(0, lib_folder)
+# from mrtrix3 import app, image, path, run, file
 
+
+def console(string):
+    print(string)
 
 def exists(path):
     return os.path.exists(path)
@@ -45,18 +48,18 @@ def exists(path):
 
 def mkdir_p(path):
     if not os.path.isdir(path):
-        app.debug('mkdir_p: ' + path)
+        # console('mkdir_p: ' + path)
         os.makedirs(path, exist_ok=True)
 
 
 def check_input(path, dir=False):
     if not dir and os.path.isfile(path):
-        app.debug('check file: ' + path)
+        # console('check file: ' + path)
         return
     elif dir and os.path.isdir(path):
-        app.debug('check dir: ' + path)
+        # console('check dir: ' + path)
         return
-    app.error(('file' if not dir else 'dir') + ' not found: ' + path)
+    raise IOError(('file' if not dir else 'dir') + ' not found: ' + path)
 
 class LogExceptions(object):
     def __init__(self, callable):
@@ -103,15 +106,16 @@ def butter2d_lp(size, cutoff, n=3):
     distance = np.sqrt((y**2)[None] + (x**2)[:, None])
     return 1 / (1.0 + (distance / cutoff)**(2*n))
 
-app.init('Max Pietsch (maximilian.pietsch@kcl.ac.uk)', 'Field Frequency Sanitiser for DWI stripe correction')
+import argparse
+parser = argparse.ArgumentParser(description='Field Frequency Sanitiser for DWI stripe correction')
 
-app.cmdline.add_argument('destriped',  help='amplitude data without stripes but with bias field OR destripe field (if -destriped_is_field)')
-app.cmdline.add_argument('reference',  help='amplitude data with stripes but without bias field')
-app.cmdline.add_argument('mask',  help='brain mask')
-app.cmdline.add_argument('output',  help='sanitised multiplicative field')
-app.cmdline.add_argument('-grad',  help='gradient table in MRtrix format')
+parser.add_argument('destriped',  help='amplitude data without stripes but with bias field OR destripe field (if -destriped_is_field)')
+parser.add_argument('reference',  help='amplitude data with stripes but without bias field')
+parser.add_argument('mask',  help='brain mask')
+parser.add_argument('output',  help='sanitised multiplicative field')
+parser.add_argument('-grad',  help='gradient table in MRtrix format')
 
-options = app.cmdline.add_argument_group('options')
+options = parser
 options.add_argument('-no_zclean', help='do not remove bias field: stop after Tikhonov regularised field estimation and inplane filter (for spred)', action='store_true')
 options.add_argument('-no_xyscrub', help='no inplane filter (for destriped_is_field and clean fields)', action='store_true')
 options.add_argument('-no_xyfilter', help='no inplane filter (for destriped_is_field and clean fields)', action='store_true')
@@ -120,9 +124,11 @@ options.add_argument('-destriped_is_field', help=' ', action='store_true')
 options.add_argument('-upsample_from', help='neural network layer extent before linear upsampling', type=int, default=16)
 options.add_argument('-device', help='"cpu" or GPU number', default="cpu")
 options.add_argument('-no_fft', help='Convolution instead of FFT filtering. Worse performance and memory footprint.', action='store_true')
+options.add_argument('-nthreads', help='nthreads', type=int)
+options.add_argument('-force', help='force', action='store_true')
+options.add_argument('-debug', help='debug', action='store_true')
 
 global force
-
 
 def write_output(IM, Output, location, stride_reference=None, **kwargs):
     global force
@@ -130,104 +136,107 @@ def write_output(IM, Output, location, stride_reference=None, **kwargs):
     if isinstance(local_force, str):
         local_force = [local_force]
     if stride_reference is not None and not np.allclose(IM.data.strides, Output.strides):
-        # np.lib.stride_tricks.as_strided(X1, shape=X.shape, strides=X1.strides)[:] = X
-        app.console("strides changed")
-        if not app.tempDir:
-            app.makeTempDir()
-        app.gotoTempDir()
-        IM.data = Output
-        IM.save(app.tempDir + '/result.mif')
-        cmd = ['mrconvert', app.tempDir + '/result.mif', '-strides', stride_reference, location] + local_force
-        run.command(' '.join(cmd))
+        assert 0, "TODO"
+        # # np.lib.stride_tricks.as_strided(X1, shape=X.shape, strides=X1.strides)[:] = X
+        # console("strides changed")
+        # if not app.tempDir:
+        #     app.makeTempDir()
+        # app.gotoTempDir()
+        # IM.data = Output
+        # IM.save(app.tempDir + '/result.mif')
+        # cmd = ['mrconvert', app.tempDir + '/result.mif', '-strides', stride_reference, location] + local_force
+        # run.command(' '.join(cmd))
     else:
         IM.data = Output
-        app.console("saving image to " + location)
+        console("saving image to " + location)
         IM.save(location)
     if np.isnan(Output).any():
-        app.error("output containts NaN")
+        raise RuntimeError("output containts NaN")
 
 
 if __name__ == '__main__':
-    app.parse()
+    args = parser.parse_args()
 
-    do_fft = not app.args.no_fft
-    force = ['-force'] if app.args.force else []
-    debug = app.args.debug
-    nthreads = 32 if app.args.nthreads is None else int(app.args.nthreads)
+    do_fft = not args.no_fft
+    force = ['-force'] if args.force else []
+    debug = args.debug
+    nthreads = 32 if args.nthreads is None else int(args.nthreads)
     if nthreads != 32:
-        app.console("nthreads: %i" % nthreads)
+        console("nthreads: %i" % nthreads)
 
-    if app.args.device.lower() == 'cpu':
+    if args.device.lower() == 'cpu':
         cuda = False
         device = 'cpu'
     else:
         cuda = True
-        if app.args.device.isdigit():
-            if "CUDA_VISIBLE_DEVICES" in os.environ and os.environ["CUDA_VISIBLE_DEVICES"] != app.args.device:
-                app.warn("warning: not setting GPU device to {} as CUDA_VISIBLE_DEVICES is already set to {}".format(
-                    app.args.device, os.environ["CUDA_VISIBLE_DEVICES"]))
+        if args.device.isdigit():
+            if "CUDA_VISIBLE_DEVICES" in os.environ and os.environ["CUDA_VISIBLE_DEVICES"] != args.device:
+                console("warning: not setting GPU device to {} as CUDA_VISIBLE_DEVICES is already set to {}".format(
+                    args.device, os.environ["CUDA_VISIBLE_DEVICES"]))
             else:
-                os.environ["CUDA_VISIBLE_DEVICES"] = app.args.device
+                os.environ["CUDA_VISIBLE_DEVICES"] = args.device
         device = 'cuda'
 
-    app.console("________________________________________________________________")
-    for k in sorted(dir(app.args)):
-        if k.startswith('_') or getattr(app.args, k) is None or k in ['debug', 'info', 'help', 'nocleanup', 'quiet']:
+    console("________________________________________________________________")
+    for k in sorted(dir(args)):
+        if k.startswith('_') or getattr(args, k) is None or k in ['debug']:
             continue
-        app.console((k + ': ').rjust(21, ' ') + str(getattr(app.args, k)))
-    app.console(('host: ').rjust(21, ' ') + str(host))
+        console((k + ': ').rjust(21, ' ') + str(getattr(args, k)))
+    console(('host: ').rjust(21, ' ') + str(host))
     if debug:
-        app.warn("writing debug output")
-    app.console("________________________________________________________________")
+        console("warning: writing debug output")
+    console("________________________________________________________________")
 
-    check_input(app.args.destriped, dir=False)
+    check_input(args.destriped, dir=False)
 
-    if not force and exists(app.args.output):
-        app.error(app.args.output+" exists, use -force to overwrite")
+    if not force and exists(args.output):
+        raise RuntimeError(args.output+" exists, use -force to overwrite")
 
     # __________________________________ load data
     global D, R, mask, Output, d_high_intensity, bvalues, success
     success = True
 
-    do_estimate_field = not app.args.destriped_is_field
+    do_estimate_field = not args.destriped_is_field
     if not do_estimate_field:
-        app.console("input is stripe field, skipping stripe field estimation")
+        console("input is stripe field, skipping stripe field estimation")
 
-    check_input(app.args.reference, dir=False)
-    R = utils.mif.load_mrtrix(app.args.reference).data  # memory map
+    check_input(args.reference, dir=False)
+    R = utils.mif.load_mrtrix(args.reference).data  # memory map
     if np.isnan(R).any():
-        app.error("reference contains NaN")
+        raise RuntimeError("reference contains NaN")
     if (R == 0).all():
-        app.error("reference is zero ")
+        raise RuntimeError("reference is zero ")
 
-    IM = utils.mif.load_mrtrix(app.args.destriped)  # will be used for output
-    if app.args.grad:
-        grad = np.loadtxt(app.args.grad)
+    IM = utils.mif.load_mrtrix(args.destriped)  # will be used for output
+    if args.grad:
+        grad = np.loadtxt(args.grad)
     else:
         grad = IM.grad
         if grad is None:
-            app.error('no gradient table found in ' + app.args.destriped)
+            raise RuntimeError('no gradient table found in ' + args.destriped)
     bvalues = np.round(grad[:, 3] / 50., 0) * 50
     bs = sorted(np.unique(bvalues).tolist())
-    app.console("b values: " + str(bs))
+    if debug:
+        console("b values: " + str(bs))
 
     D = IM.data  # memory map
     assert len(D.shape) == 4, D.shape
     assert D.shape[3] == len(bvalues), (D.shape, grad.shape)
     assert np.all(R.shape == D.shape), (R.shape, D.shape)
     if np.isnan(D).any():
-        app.error("destriped contains NaN")
+        raise RuntimeError("destriped contains NaN")
     if (D == 0).all():
-        app.error("destriped is zero ")
+        raise RuntimeError("destriped is zero ")
     if (D == 1).all():
         app.warn("destripe is ones")
     slices, vols = D.shape[2:4]
-    app.console('%i slices, %i volumes' %(slices, vols))
+    if debug:
+        console('%i slices, %i volumes' %(slices, vols))
 
-    mask = np.squeeze(utils.mif.load_mrtrix(app.args.mask).data) > 0.5
+    mask = np.squeeze(utils.mif.load_mrtrix(args.mask).data) > 0.5
     assert len(mask.shape) == 3 and np.all(D.shape[:3] == mask.shape), (D.shape, mask.shape)
     if mask.sum() == 0:
-        app.error("mask is empty")
+        raise RuntimeError("mask is empty")
 
     d_high_intensity = dict()
     _masked = R[mask]
@@ -235,27 +244,28 @@ if __name__ == '__main__':
         d_high_intensity[b] = np.percentile(_masked[..., bvalues == b], 99)
     _masked = None
 
-    app.debug('reference 99 percentile intensity [b]:\n' + str(pprint.pformat(d_high_intensity, indent=4)))
+    # console('reference 99 percentile intensity [b]:\n' + str(pprint.pformat(d_high_intensity, indent=4)))
 
     mask_slice_means = mask.mean(axis=(0, 1))
 
-    tikhonov_delta = float(app.args.tikhonov_delta)
-    app.debug('Tikhonov delta: %f' % tikhonov_delta)
-    upsample_from = int(app.args.upsample_from)
+    tikhonov_delta = float(args.tikhonov_delta)
+    if debug:
+        console('Tikhonov delta: %f' % tikhonov_delta)
+    upsample_from = int(args.upsample_from)
     MaskFill3D_ks = (5, 5, 1)
     upsample_to = max(*mask.shape[:2])
     pad_fft = 4 * upsample_to // upsample_from
 
     if not do_estimate_field:
         Output = D.astype(np.float32, copy=False).copy()
-        if not app.args.no_xyscrub:
+        if not args.no_xyscrub:
             # mark untrusted data with -1
             Output[Output < 0.1] = -1
             Output[Output > 10] = -1
     else:
         # __________________________________ Tikhonov regularised field estimation, marks untrusted data with -1
         Output = np.ones_like(D, dtype=np.float32) * -1
-        app.console("estimating multiplicative field")
+        console("estimating multiplicative field")
 
         def field_fit_worker(ii, tikhonov_delta):
             global D, R, mask, d_high_intensity, bvalues, success
@@ -302,26 +312,27 @@ if __name__ == '__main__':
                 pool.join()
 
         if not success:
-            app.error("oops")
+            raise RuntimeError("oops")
         if np.isnan(Output).any():
-            app.error("Output contains NaN")
+            raise RuntimeError("Output contains NaN")
         if (Output == 0).any():
-            app.error("Output contains zeros")
+            raise RuntimeError("Output contains zeros")
 
         if debug:
-            write_output(IM, Output, app.args.output + '_ft0.mif', stride_reference=None, force=True)
+            write_output(IM, Output, args.output + '_ft0.mif', stride_reference=None, force=True)
 
     # __________________________________ interpolate / extrapolate field in untrusted / low intensity regions
-    if not app.args.no_xyscrub:
-        app.debug("Train yourself to let go of everything you fear to lose.")
+    if not args.no_xyscrub:
+        console("Train yourself to let go of everything you fear to lose.")
         assert MaskFill3D_ks[2] == 1,  "TODO interpolation across slices requires loop over volumes"
 
         # iterate over slices so that each volume gets the same number of iterations irrespective of intensity
-        progress = app.progressBar("sanitising multiplicative field", target=slices)
+
+        progress = tqdm(total=slices, desc="sanitising multiplicative field", leave=True)
         for sl in range(slices):
-            progress.increment()
+            progress.update()
             if debug:
-                app.console('slice %i' % sl)
+                console('slice %i' % sl)
             chunk = Output[..., sl, :]  # x, y, v
             with torch.no_grad():
                 Inside = torch.from_numpy((chunk != -1).astype(np.float32)).reshape(1, 1, *chunk.shape[:3]).contiguous().to(device)
@@ -339,13 +350,13 @@ if __name__ == '__main__':
                 # slice-level log field
                 chunk[chunk == -1] = 1.0
                 if np.isnan(chunk).any():
-                    app.error("chunk contains NaN")
+                    raise RuntimeError("chunk contains NaN")
                 if (chunk == 0).any():
-                    app.error("chunk contains zeros")
+                    raise RuntimeError("chunk contains zeros")
                 if (chunk == -1).any():
-                    app.error("chunk contains -1 ")
+                    raise RuntimeError("chunk contains -1 ")
                 if (chunk < 0).any():
-                    app.error("chunk contains negative values")
+                    raise RuntimeError("chunk contains negative values")
                 X = torch.log(torch.from_numpy(chunk.astype(np.float32, copy=True)).reshape(1, 1, *chunk.shape[:3])).to(device)
 
                 # fill at least 5 times or until brain mask has no non-inside voxels
@@ -355,30 +366,29 @@ if __name__ == '__main__':
                 while True:
                     # stop if full coverage
                     if int(Inside.sum()) == int(np.product(Inside.shape)):
-                        app.debug("converged at iteration %i (nothing to fill in) %f %f %g" % (
+                        console("converged at iteration %i (nothing to fill in) %f %f %g" % (
                             it, torch.mul(Inside, BM).mean(), mask_mean,  torch.mul(Inside, BM).mean() - mask_mean))
                         break
                     it += 1
                     if it > 4 and (mask_slice_means[sl] == 0 or torch.abs(torch.mul(Inside, BM).mean() - mask_mean) < 0.5 / np.product(BM.shape)):
-                        app.debug("converged at iteration %i (brain mask filled in) %g" % (it, torch.mul(Inside, BM).mean() - mask_mean))
+                        console("converged at iteration %i (brain mask filled in) %g" % (it, torch.mul(Inside, BM).mean() - mask_mean))
                         break
                     X, Inside = pc(X, Inside, return_mask=True)
                 X = X.cpu().numpy()
                 Output[..., sl, :] = np.squeeze(np.exp(X))
                 if (Output[..., sl, :] <= 0).any():
-                    app.error("Output slice %i non-positive" % sl)
+                    raise RuntimeError("Output slice %i non-positive" % sl)
 
-        progress.done()
         if debug:
-            write_output(IM, Output, app.args.output + '_ft1.mif', stride_reference=None, force=True)
+            write_output(IM, Output, args.output + '_ft1.mif', stride_reference=None, force=True)
 
-    if not app.args.no_xyfilter:
+    if not args.no_xyfilter:
         # __________________________________ remove upsampling and extrapolation artefacts
         cutoff_sr = 0.5 / upsample_from
         cutoff_frequency = 2.0 * cutoff_sr
 
         if do_fft:
-            app.console("FFT filtering of inplane field artefacts")
+            console("FFT filtering of inplane field artefacts")
             import warnings
             warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -414,7 +424,7 @@ if __name__ == '__main__':
 
             Output = Output.reshape(*Output.shape[:2], slices, vols)
         else:
-            app.console("Convolutionial filtering of inplane field artefacts")
+            console("Convolutionial filtering of inplane field artefacts")
 
             kernel_size = min(upsample_to // 4, 41)
             kernel_size += kernel_size % 2 - 1
@@ -426,20 +436,20 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     Output[..., vol] = np.squeeze(ipfilter(X).cpu().numpy())
         if debug:
-            write_output(IM, Output, app.args.output + '_ft2.mif', stride_reference=None, force=True)
+            write_output(IM, Output, args.output + '_ft2.mif', stride_reference=None, force=True)
 
     if (Output <= 0).any():
-        app.error("Output non-positive")
+        raise RuntimeError("Output non-positive")
 
-    if not app.args.no_zclean:
+    if not args.no_zclean:
         # ____________________________ remove bias field using mask as "attention" mechanism, lower trust edge slices
 
-        app.debug("filtering out bias field")
+        console("filtering out bias field")
         # refine mask based on mean intensity in lowest shell
         global m1
         m1 = np.logical_and(mask, R[..., bvalues == min(bs)].mean(-1) > 0.5 * d_high_intensity[min(bs)]).astype(np.float32)
         if m1.sum() < 1:
-            app.error("m1 empty")
+            raise RuntimeError("m1 empty")
         eps = 0.5
         # if not do_fft:
         #     ks = 9
@@ -454,7 +464,7 @@ if __name__ == '__main__':
         #     progress = app.progressBar("Conv filtering of bias field", target=vols)
         #     for vol in range(vols):
         #         progress.increment()
-        #         app.debug(str(vol))
+        #         console(str(vol))
         #         f = torch.from_numpy(np.log(Output[..., vol])).view(*m1.shape).contiguous().float().to(device)
         #         Output[..., vol] /= np.squeeze(np.exp(slfilter(f, m1, eps, ret_support=False).cpu().numpy()))
         #     progress.done()
@@ -533,11 +543,10 @@ if __name__ == '__main__':
             progress_bar.done()
 
         if not success:
-            app.error("oops2")
+            raise RuntimeError("oops2")
 
-    write_output(IM, Output, app.args.output) #, stride_reference=app.args.destriped)
+    write_output(IM, Output, args.output) #, stride_reference=args.destriped)
 
-    app.complete()
 
 
 
