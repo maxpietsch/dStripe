@@ -1,0 +1,139 @@
+{
+    "cuda": true,
+    "learning_rate": 0.0001,
+    "datadir": "/vol/biomedic2/mpietsch",
+    "outdir": "/home/mpietsch/dstrdata/models",
+    "dataloader": "MRLoader",
+    "constancy": {"weight": 1.0},
+    "data_settings": 40.2,
+    "scheduler": "CyclicLR",
+    "epochs": 500,
+    "max_loss": 100000,
+    "checkmemory": false,
+    "verbose": false,
+    "basename": "dstripe_amp_rc03ds02",
+    "show": false,
+    "meta_data_train": [
+        {
+            "source": "sub-CC00693XX18/ses-201000/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00693XX18/ses-201000/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00218AN12/ses-85900/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00218AN12/ses-85900/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00513XX10/ses-150000/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00513XX10/ses-150000/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00178XX14/ses-58600/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00178XX14/ses-58600/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00328XX15/ses-104800/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00328XX15/ses-104800/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00472XX11/ses-140000/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00472XX11/ses-140000/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00568XX16/ses-198900/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00568XX16/ses-198900/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00650XX07/ses-218007/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00650XX07/ses-218007/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00227XX13/ses-76601/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00227XX13/ses-76601/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00429XX17/ses-130900/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00429XX17/ses-130900/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00629XX19/ses-198100/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00629XX19/ses-198100/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00401XX05/ses-123900/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00401XX05/ses-123900/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00094AN13/ses-33500/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00094AN13/ses-33500/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00411XX07/ses-126200/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00411XX07/ses-126200/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00629XX19/ses-182000/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00629XX19/ses-182000/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00238BN16/ses-80400/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00238BN16/ses-80400/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00245AN15/ses-82304/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00245AN15/ses-82304/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00075XX10/ses-28400/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00075XX10/ses-28400/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00150AN02/ses-54800/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00150AN02/ses-54800/tmp/mask_r03.mif"
+        },
+        {
+            "source": "sub-CC00741XX16/ses-218900/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00741XX16/ses-218900/tmp/mask_r03.mif"
+        }
+    ],
+    "meta_data_val": [
+        {
+            "source": "sub-CC00143BN12/ses-47600/tmp/amp_recon-5_02.mif",
+            "mask_source": "sub-CC00143BN12/ses-47600/tmp/mask_r03.mif"
+        }
+    ],
+    "meta_data_test": null,
+    "paired": false,
+    "test_data_cropped": false,
+    "val_data_cropped": false,
+    "train_data_cropped": false,
+    "datafile": "tmp/amp_recon-5_02.mif",
+    "model_params": {
+        "n_block": 3,
+        "input_dim": 1,
+        "dim": 16,
+        "updim": 2,
+        "downsample": 2,
+        "final_pool": 16,
+        "activ": "relu",
+        "pad_type": "zero",
+        "k1": 3,
+        "k2": 1,
+        "prep": "none",
+        "norm": "none",
+        "bias": true,
+        "custom_init": 3,
+        "mode": 1,
+        "dobn": true,
+        "version": 3,
+        "preventRedundantParams": true,
+        "inplane_filter": "gauss",
+        "inplane_filter_options": {"blur_sigma": 1.5 },
+        "field_filter": "gauss",
+        "field_filter_options": {"kernel_size": 9, "padding": "reflect", "filter_type": "gaussian", "gauss_std": 1.0}
+    },
+    "epoch_modeswitch": 0,
+    "val_stride": 10,
+    "screenshot": 10,
+    "normalise_used_in_training": "percentile-scale",
+    "batches_per_epoch": 40
+}
