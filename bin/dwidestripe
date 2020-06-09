@@ -138,9 +138,13 @@ def execute():  # pylint: disable=unused-variable
 
     # ________ run stripe correction
     destripe()
+    progress = app.ProgressBar('concatenating field', 2)
     fields = (['eval_' + model_name + '/nn-amp_field_vol_%05i_2.mif' % ivol for ivol in range(n_vols)])
     run.command('mrcat ' + ' '.join(fields) + ' -axis 3 - | mrconvert - -grad grad -set_property comments "" -datatype float32 amp_field_orig.mif')
+    progress.increment()
     run.command('rm ' + ' '.join(fields))
+    progress.increment()
+    progress.done()
 
     # ________ field correction
     cmd = mrffs + ['-destriped_is_field', '-no_xyscrub', 'amp_field_orig.mif', 'nn/amp.mif']
