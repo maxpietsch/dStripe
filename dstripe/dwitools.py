@@ -55,7 +55,7 @@ def get_n_bbalanced(arr, n=40):
         grad = np.round(np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hcp288.txt'))[:, 3]).astype(int)
     else:
         raise NotImplementedError("TODO: use grad from metadata " + str(arr.shape))
-    X = np.arange(300)[:, None]
+    X = np.arange(arr.shape[3])[:, None]
     y = grad[:, None]
     X_sel, y_sel = balanced_sample_maker(X, y, class_sample_size=n//4)
     arr = arr[..., X_sel.ravel()]
