@@ -199,6 +199,25 @@ class MinMaxNormalise(object):
         return self.max - self.min, self.min
 
 
+class ConstNormalise(object):
+    def __init__(self, lo=0, hi=0.95):
+        self.lo = lo
+        self.hi = hi
+
+    def fit(self, X):
+        pass
+
+    def transform(self, X):
+        return (X - self.lo) / (self.hi - self.lo)
+
+    def transform_inverse(self, X):
+        return X * (self.hi - self.lo) + self.lo
+
+    @property
+    def scale_offset(self):
+        return self.hi - self.lo, self.lo
+
+
 class PercentileNormalise(object):
     def __init__(self, p=(0, 98), lo_zero=False):
         self.lo = None
@@ -252,11 +271,12 @@ class SHPairedDataset4D(torch.utils.data.Dataset):
         elif normalise == 'minmax':
             self.normalise = MinMaxNormalise()
         elif normalise == 'percentile':
-            self.normalise = PercentileNormalise(p=(0,98))
+            self.normalise = PercentileNormalise(p=(0, 98))
         elif normalise == 'none':
             self.normalise = None
         else:
             self.normalise = normalise
+
         # self.imdim = imdim
 
         self.import_functions = import_functions
