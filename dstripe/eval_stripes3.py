@@ -693,14 +693,14 @@ if __name__ == '__main__':
 
                     # _____________________ FFT filter inplane artefacts
                     eprint('\nFFT filter inplane artefacts\n', verbose=True)
-                    cutoff_sr = 0.5 / upsample_from
+                    cutoff_sr = 0.5 / upsample_from  # TODO: this does not generalise
                     cutoff_frequency = 2.0 * cutoff_sr
 
-                    def fft_filter(args):
-                        im, bw2, pad_fft, ii = args
-                        _im = np.pad(im, pad_fft, mode='constant', constant_values=1)
-                        im = scipy.fftpack.ifft2(scipy.fftpack.fft2(_im) * bw2).real[pad_fft:-pad_fft, pad_fft:-pad_fft]
-                        return im
+                    # def fft_filter(args):
+                    #     im, bw2, pad_fft, ii = args
+                    #     _im = np.pad(im, pad_fft, mode='constant', constant_values=1)
+                    #     im = scipy.fftpack.ifft2(scipy.fftpack.fft2(_im) * bw2).real[pad_fft:-pad_fft, pad_fft:-pad_fft]
+                    #     return im
 
                     global Output
                     Output = out.reshape(*out.shape[:2], out.shape[2] * out.shape[3])
