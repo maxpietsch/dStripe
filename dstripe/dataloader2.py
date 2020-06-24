@@ -41,10 +41,13 @@ class MRLoader(SlimDataLoaderBase):
 
         # load data (not into _data)
         self.metadata = []
+        self._memmap_original_metadata = []
         self.root_dir = root_dir
         self.paired = paired
         self.transform = batch_sample_transform
         self.shuffle = shuffle
+
+        # memmap_dir = os.path.expanduser('~/tmp')
 
         if global_normalise == 'zca':
             from dataloader import ZCANormalise
@@ -73,7 +76,6 @@ class MRLoader(SlimDataLoaderBase):
         self._pp = pprint.PrettyPrinter(indent=4, width=160, depth=None)
         self.log = lambda x: print(x) if isinstance(x, str) else self._pp.pprint(x)
 
-        # load images into RAM
         self.imagedata = dict()
         self.log('loading data, cropped to mask: {}'.format(cropped_to_mask))
         whats = ['source']
@@ -82,7 +84,6 @@ class MRLoader(SlimDataLoaderBase):
         idx = 0
         for md in metadata:
             self.log(md)
-
             imdata = {}
             for what in whats:
                 assert what in md, (md.keys(), self.paired)
@@ -92,43 +93,47 @@ class MRLoader(SlimDataLoaderBase):
                 if load_mask or cropped_to_mask:
                     assert 'mask_' + what in md, md.keys()
                     msk = os.path.join(self.root_dir, md['mask_' + what])
+                if not memmap:  # load images into RAM
+                    mif = self.__load_mif(impath, mask=msk if cropped_to_mask else None, fun=importer, name=what)
+                    imdata.update({what: mif[what]})  # overwrite imdata[what]
+                    if what+'_md' in mif:
+                        md[what+'_md'] = mif[what+'_md']
+                    imdata[what + "_file"] = impath
+                    # TODO bbox to self.metadata
+                    if load_mask:
+                        if 'mask' in mif:
+                            assert cropped_to_mask
+                            imdata.update({'mask_' + what: mif['mask']})
+                        else:
+                            assert not cropped_to_mask
+                            imdata.update({'mask_' + what: self.__load_mif(msk, mask=msk if cropped_to_mask else None)['im']})
 
-                # image = load_mrtrix(impath)
-                # if hasattr(image, 'grad'):
-                #     md[what+'_grad'] = image.grad
-                mif = self.__load_mif(impath, mask=msk if cropped_to_mask else None, fun=importer)
-                imdata.update({what: mif['im']})
-                imdata[what + "_file"] = impath
-                # TODO bbox to self.metadata
-                if load_mask:
-                    if 'mask' in mif:
-                        assert cropped_to_mask
-                        imdata.update({'mask_' + what: mif['mask']})
-                    else:
-                        assert not cropped_to_mask
-                        imdata.update({'mask_' + what: self.__load_mif(msk, mask=msk if cropped_to_mask else None)['im']})
+                else:  # memory map images
+                    mif = self.__load_mif(impath, mask=msk if cropped_to_mask else None, fun=importer, memmap=memmap, name=what)
+                    imdata.update({what: mif[what], '_load_functions_' + what: mif['load_functions'], '_memmap_' + what: mif['memmap']})
+                    if what+'_md' in mif:
+                        md[what+'_md'] = mif[what+'_md']
+                    imdata[what + "_file"] = impath
+                    # TODO bbox to self.metadata
+                    if load_mask:
+                        if 'mask' in mif:
+                            assert cropped_to_mask
+                            imdata.update({'mask_' + what: mif['mask']})
+                        else:
+                            assert not cropped_to_mask
+                            imdata.update({'mask_' + what: self.__load_mif(msk, mask=msk if cropped_to_mask else None)['im']})
+
             assert len(self.metadata) == idx, (len(self.metadata), idx)
-            import types
-            if isinstance(self.data_postproc, types.FunctionType) or callable(self.data_postproc):
-                gen = self.data_postproc(imagedata=imdata, metadata=md)
-                if isinstance(gen, types.GeneratorType):
-                    for imdat, mdat in gen:
-                        self.imagedata[idx] = imdat
-                        self.metadata.append(mdat)
-                        if memmap:
-                            self.memmap(idx, whats)
-                        idx += 1
-                else:
-                    assert isinstance(gen, dict) and 'imdata' in gen and 'metadata' in gen, str(gen)
-                    self.imagedata[idx] = gen['imdata']
-                    self.metadata.append(gen['metadata'])
-                    if memmap:
-                        self.memmap(idx, whats)
+
+            if not memmap:  # post-process
+                for _im, _md in self.__postproc(imdata, md):
+                    self.imagedata[idx] = _im
+                    self.metadata.append(_md)
                     idx += 1
-            else:
-                assert self.data_postproc is None, str(self.data_postproc)
+            else:  # memory mapped input file --> process on the fly
                 self.imagedata[idx] = imdata
                 self.metadata.append(md)
+                self._memmap_original_metadata.append(md)
                 idx += 1
 
             assert len(self.metadata) == idx and len(self.imagedata) == idx, (len(self.metadata), len(self.imagedata), idx)
@@ -145,17 +150,48 @@ class MRLoader(SlimDataLoaderBase):
         assert len(self.metadata) == len(self.imagedata)
         return len(self.imagedata)
 
-    def memmap(self, idx, whats):
-        import tempfile
+    # class GetMMappedData(object):
+    #     def __init__(self, idx, memmap):
+    #         self.idx = idx
+    #         self.memmap = memmap
+    #
+    #     def __getitem__(self, *args):
+    #         return self.memmap[idx, *args]
+
+    def __postproc(self, imdata, md):
+        """ do not use generators on memory mapped data """
+        import types
+        if isinstance(self.data_postproc, types.FunctionType) or callable(self.data_postproc):
+            gen = self.data_postproc(imagedata=imdata, metadata=md)
+            if isinstance(gen, types.GeneratorType):
+                result = []
+                for imdat, mdat in gen:
+                    result.append((imdat, mdat))
+                return result
+            else:
+                assert isinstance(gen, dict) and 'imdata' in gen and 'metadata' in gen, str(gen)
+                return [(gen['imdata'], gen['metadata'])]
+        else:
+            assert self.data_postproc is None, str(self.data_postproc)
+            return [(imdata, md)]
+
+    def memmap_old(self, idx, whats, memmap_dir, n_data):
         for what in whats:
-            with tempfile.NamedTemporaryFile(dir='/home/mp14/tmp/') as ntf:
-                mm = np.memmap(ntf, mode='w+', shape=self.imagedata[idx][what].shape,
-                                                      dtype=self.imagedata[idx][what].dtype)
-                mm[:] = self.imagedata[idx][what][:]
-                self.imagedata[idx][what] = mm
-                print("created memmap for idx %i %s at %s" % (idx, what, ntf.name))
+            if what not in self._memmap:
+                import tempfile
+                with tempfile.NamedTemporaryFile(dir=memmap_dir) as ntf:
+                    self._memmap[what] = np.memmap(ntf,
+                                                   mode='w+',
+                                                   shape=tuple(list([n_data] + self.imagedata[idx][what].shape)),
+                                                   dtype=self.imagedata[idx][what].dtype)
+                    print("created memmap for idx %i %s at %s" % (idx, what, ntf.name))
+            self._memmap[what][idx, :] = self.imagedata[idx][what][:]
+            self.imagedata[idx][what] = None  # TODO
 
     def fit_normalise(self, masked=True):
+        if self.normalise is None:
+            return
+        assert self._memmap_original_metadata is None, "TODO"
         Xs = []
         if 'target' in self.imagedata[0]:
             print('target not used for normalisation')
@@ -171,6 +207,9 @@ class MRLoader(SlimDataLoaderBase):
         self.normalise.fit(np.concatenate(Xs, axis=1, out=None))
 
     def apply_normalise(self):
+        if self.normalise is None:
+            return
+        assert self._memmap_original_metadata is None, "TODO"
         for sample in self.imagedata.values():
             for what in ['source', 'target']:
                 if what not in sample:
@@ -194,33 +233,61 @@ class MRLoader(SlimDataLoaderBase):
 
         return rmin, rmax, cmin, cmax, zmin, zmax
 
-    def __load_mif(self, path, mask=None, fun=None, pad=1):
+    def __mask_image(self, im, mask, name='im', pad=1):
+        if len(mask.shape) == 3:
+            mask = mask[..., None]
+        bbox = self.__bbox2_3D(mask, pad=pad)
+        xmin, xmax, ymin, ymax, zmin, zmax = bbox
+        return {name: self.__numpy2torch_transpose(im[xmin:xmax + 1, ymin:ymax + 1, zmin:zmax + 1]),
+                "mask": self.__numpy2torch_transpose(mask[xmin:xmax + 1, ymin:ymax + 1, zmin:zmax + 1]),
+                "bbox": bbox}
+
+    def __load_mif(self, path, mask=None, fun=None, pad=1, name='im', grad=False, memmap=False):
         assert path is not None
         assert os.path.isfile(path), 'can not find image %s' % (path)
 
-        im = load_mrtrix(path).data
-        if len(im.shape) == 3:
-            im = im[..., None]
-        if fun is not None:
-            im = fun(im)
+        ret = {name: None}  # stores image (H x W x D x C) --> (C x H x W x D), C-contiguous
 
-        assert len(im.shape) == 4, im.shape
-        ret = {"im": None}  # stores image (H x W x D x C) --> (C x H x W x D), C-contiguous
+        im = load_mrtrix(path, memmap=memmap).data
+        if grad:
+            assert hasattr(im, 'grad')
+            ret[name+'_grad'] = im.grad.copy()
 
-        if mask is not None:
-            assert os.path.isfile(mask), 'can not find mask %s' % (mask)
-            mask = load_mrtrix(mask).data
-            if len(mask.shape) == 3:
-                mask = mask[..., None]
-            bbox = self.__bbox2_3D(mask, pad=pad)
-            xmin, xmax, ymin, ymax, zmin, zmax = bbox
-            ret.update({"im": im[xmin:xmax + 1, ymin:ymax + 1, zmin:zmax + 1].transpose((3, 0, 1, 2)).copy(),
-                        "mask": mask[xmin:xmax + 1, ymin:ymax + 1, zmin:zmax + 1].transpose((3, 0, 1, 2)).copy(),
-                        "bbox": bbox})
-        else:
-            bbox = 0, im.shape[0], 0, im.shape[1], 0, im.shape[2]
-            ret.update({"im": im.transpose((3, 0, 1, 2)).copy(), "bbox": bbox})
+        if not memmap:
+            if len(im.shape) == 3:
+                im = im[..., None]
+            if fun is not None:
+                im = fun(im)
+                if isinstance(im, dict):
+                    d = im
+                    im = d['imdata']
+                    ret[name+'_md'] = d['metadata']
+
+            assert len(im.shape) == 4, im.shape
+
+            if mask is not None:
+                assert os.path.isfile(mask), 'can not find mask %s' % mask
+                mask = load_mrtrix(mask).data
+                ret.update(self.__mask_image(im, mask, name, pad=pad))
+            else:
+                bbox = 0, im.shape[0], 0, im.shape[1], 0, im.shape[2]
+                ret.update({name: self.__numpy2torch_transpose(im), "bbox": bbox})
+        else:  # memory map
+            functions = []
+            if fun is not None:
+                functions.append(fun)
+
+            if mask is not None:
+                raise NotImplementedError("TODO: masked memmap")
+            else:
+                bbox = 0, im.shape[0], 0, im.shape[1], 0, im.shape[2]
+                functions.append(self.__numpy2torch_transpose)
+                ret.update({"bbox": bbox, "load_functions": functions, "memmap": im})
         return ret
+
+
+    def __numpy2torch_transpose(self, x):
+        return x.transpose((3, 0, 1, 2)).copy()
 
     # def set_thread_id(self, thread_id):
     #     self.thread_id = thread_id
@@ -244,12 +311,38 @@ class MRLoader(SlimDataLoaderBase):
             raise Exception('key %i not in imagedata (%i, %i)' % (idx, min(self.imagedata.keys()), max(self.imagedata.keys())))
 
         sample = self.imagedata[idx]
-        sample['idx'] = idx
-        # self.log(['before transform', sample.keys()])
 
+        if self._memmap_original_metadata:
+            # load memory mapped file, pre- and post-process, save metadata
+            import copy
+            md = copy.deepcopy(self._memmap_original_metadata[idx])
+            csample = dict()
+            toload = []
+            for k in sample.keys():
+                if '_load_functions_'+k in sample:
+                    toload.append(k)
+                    assert sample[k] is None
+                if k.startswith('_load_functions_') or '_load_functions_'+k in sample:
+                    continue
+                csample[k] = sample[k]
+            assert len(toload), "memory mapping but nothing to load"
+            for k in toload:
+                im = sample['_memmap_' + k]
+                assert im is not None
+                assert len(sample.get('_load_functions_'+k, [])), sample.get('_load_functions_'+k, [])
+                print(sample.get('_load_functions_'+k, []))
+                for f_load in sample.get('_load_functions_'+k, []):
+                    im = f_load(im)
+                    if isinstance(im, dict):
+                        md[k + '_md'] = im['metadata']
+                        im = im['imdata']
+                csample[k] = im
+            sample, md = self.__postproc(csample, md)[0]
+            self.metadata[idx] = md
+
+        sample['idx'] = idx
         if self.transform is not None:
             sample = self.transform(**sample)
-            # self.log(['after transform', sample.keys()])
 
         return sample
 

@@ -145,7 +145,7 @@ class NetworkTrainer(object):
         if 'dataloader' in self.p.dict:
             version = self.p.dataloader
         else:
-            version='get_tra_val_loader'
+            version = 'get_tra_val_loader'
         if version == 'get_tra_val_loader':
             self.__dict__[short+'_loader'] = get_tra_val_loader(self.p.datadir,
                                                                 self.p.dict['meta_data_'+short], transform=transform,
@@ -176,7 +176,8 @@ class NetworkTrainer(object):
                               load_sample_funs=self.data_postproc,
                               batch_sample_transform=None,
                               number_of_threads=self.num_workers,
-                              shuffle=shuffle)
+                              shuffle=shuffle,
+                              memmap=self.p.dict.get('memmap', False))
 
             self.__dict__[short + '_loader'] = MRMultiThreadedAugmenter(loader,
                                                                         transform=transform,
@@ -252,6 +253,7 @@ class NetworkTrainer(object):
                 for i, y in enumerate(x):
                     print(("{:" + str(col_maxes[i]) + fmt + "}").format(y), end="  ")
                 print("")
+
         def report_image_stats(loader='train_loader'):
             if self.quiet:
                 return
@@ -259,22 +261,24 @@ class NetworkTrainer(object):
                 return
             res = []
             print(loader)
-            for sample in self.__dict__[loader].dataset.imagedata.values():
+            dset = self.__dict__[loader].dataset
+            for isample in range(len(dset.imagedata)):
+                sample = dset[isample]
+                assert sample['source'] is not None, sample.keys()
                 if 'mask_source' in sample and sample['mask_source'] is not None:
                     X = sample['source'][sample['mask_source']>0.5]
                 else:
                     X = sample['source']
-                vol = -1
-                if 'vol' in sample:
-                    vol = sample['vol']
-                res.append([vol,
+                res.append([sample.get('vol', -1),
+                            sample.get('b', -1),
                             np.mean(X),
                             np.min(X),
                             np.percentile(X, 95),
                             np.percentile(X, 99),
                             np.max(X)])
-            matprint(np.array(res), headers='vol mean min p95 p99 max'.split())
-            print('scale_offset', self.__dict__[loader].dataset.normalise.scale_offset)
+            matprint(np.array(res), headers='vol b mean min p95 p99 max'.split())
+            if self.__dict__[loader].dataset.normalise is not None:
+                print('scale_offset', self.__dict__[loader].dataset.normalise.scale_offset)
 
         if normalise is None:
             report_image_stats(loader='train_loader')
