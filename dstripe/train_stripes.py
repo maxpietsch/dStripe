@@ -1201,6 +1201,38 @@ if __name__ == '__main__':
                                                        centre_variance=(0.9, 1.1),
                                                        noise_variance=(0.05, 0.05),
                                                        block_slope_range=(0., 0.3), power=2)
+    elif data_settings == 40.21:  # for dHCP SHARD recon04 with SURE: IS; MSE: LR,AP balanced orientations, eval on all, power=2
+        #  source == target
+        from augmentation2 import *
+
+        settings = {
+            'transforms_val': Compose([RndChoiceTransform(AxialSliceDir(modes=('AP', 'LR')), identity_transform=True),
+                                       RandomDihedralSliceDirPreserving(),
+                                       GeneralStripeTransform(interleave=3, block_size=0,
+                                                              centre_variance=(0.9, 1.1),
+                                                              noise_variance=(0.05, 0.05),
+                                                              block_slope_range=(0., 0.3), power=2),
+                                       SampleToTensor4D()]),
+            'transforms_train': Compose(
+                [RndChoiceTransform(AxialSliceDir(modes=('AP')),
+                                    AxialSliceDir(modes=('LR')),
+                                    identity_transform=True),
+                 RandomDihedralSliceDirPreserving(),
+                 GeneralStripeTransform(interleave=3, block_size=0,
+                                        centre_variance=(0.9, 1.1),
+                                        noise_variance=(0.05, 0.05),
+                                        block_slope_range=(0., 0.3), power=2),
+                 SampleToTensor4D()]),
+            "normalise": None}
+        Net.import_functions = {'source': get_one_bbalanced}
+        Net.data_postproc = VolumeLoader(normalise=normalise_fun)
+
+        Net.do_sure = True
+        Net.sure_perturbation = GeneralStripeTransform(interleave=3, block_size=0,
+                                                       centre_variance=(0.9, 1.1),
+                                                       noise_variance=(0.05, 0.05),
+                                                       block_slope_range=(0., 0.3), power=2)
+
     elif data_settings == 40.3:  # for dHCP SHARD recon04 MSE: IS,LR,AP balanced orientations, eval on all, power=2
         #  source == target
         from augmentation2 import *
