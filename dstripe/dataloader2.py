@@ -191,7 +191,7 @@ class MRLoader(SlimDataLoaderBase):
     def fit_normalise(self, masked=True):
         if self.normalise is None:
             return
-        assert self._memmap_original_metadata is None, "TODO"
+        assert len(self._memmap_original_metadata) == 0, "TODO"
         Xs = []
         if 'target' in self.imagedata[0]:
             print('target not used for normalisation')
@@ -209,7 +209,7 @@ class MRLoader(SlimDataLoaderBase):
     def apply_normalise(self):
         if self.normalise is None:
             return
-        assert self._memmap_original_metadata is None, "TODO"
+        assert len(self._memmap_original_metadata) == 0, "TODO"
         for sample in self.imagedata.values():
             for what in ['source', 'target']:
                 if what not in sample:
@@ -330,7 +330,6 @@ class MRLoader(SlimDataLoaderBase):
                 im = sample['_memmap_' + k]
                 assert im is not None
                 assert len(sample.get('_load_functions_'+k, [])), sample.get('_load_functions_'+k, [])
-                print(sample.get('_load_functions_'+k, []))
                 for f_load in sample.get('_load_functions_'+k, []):
                     im = f_load(im)
                     if isinstance(im, dict):

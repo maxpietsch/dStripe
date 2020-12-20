@@ -281,9 +281,10 @@ class NetworkTrainer(object):
                 print('scale_offset', self.__dict__[loader].dataset.normalise.scale_offset)
 
         if normalise is None:
-            report_image_stats(loader='train_loader')
-            report_image_stats(loader='val_loader')
-            report_image_stats(loader='test_loader')
+            if not self.p.dict['memmap']:
+                report_image_stats(loader='train_loader')
+                report_image_stats(loader='val_loader')
+                report_image_stats(loader='test_loader')
             return
 
         print('normalising:', normalise, end=' ')
@@ -624,7 +625,7 @@ class NetworkTrainer(object):
     #     pass
 
     def _screenshot(self, S, T, O, M=None, E=None, fstem='', show=True, reverse=False):
-        assert 0, "TODO import matplotlib and plots"
+        return  # "TODO import matplotlib and plots"
         n = 1
         if 'screenshot_Nc' in self.p.dict:
             Nc = self.p['screenshot_Nc']

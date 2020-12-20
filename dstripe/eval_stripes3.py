@@ -471,6 +471,7 @@ if __name__ == '__main__':
                                         'mask_source': '{}/{}'.format(x, mask_file) if x else mask_file} for
                                        x in poverride_dict["subs_val"]]
     poverride_dict['subs_train'] = None
+    poverride_dict['memmap'] = False
     poverride_dict['batches_per_epoch'] = np.inf
     poverride_dict['batch_size'] = batch_size
     # pprint.pprint(poverride_dict)
