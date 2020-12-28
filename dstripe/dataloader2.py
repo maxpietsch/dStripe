@@ -1,8 +1,10 @@
-import os, pprint
+import os
+import pprint
 import torch
 import numpy as np
 from abc import ABCMeta
-import random, logging
+import random
+import logging
 from multiprocessing import Process
 from multiprocessing import Queue as MPQueue
 
@@ -11,14 +13,18 @@ from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
 
 from utils.mif import load_mrtrix
 
+
 class MRLoader(SlimDataLoaderBase):
     def __init__(self, batch_size, root_dir, metadata,
                  paired=True,  # load source and target
                  load_mask=True,
                  cropped_to_mask=False,
-                 global_normalise='none',  # global intensity normalisation applied to all data equally after loading
-                 load_np_funs=None,  # at loading time: dict of functions applied to numpy image (before cropping)
-                 load_sample_funs=None,  # at loading time: applied to sample dictionary (after cropping)
+                 # global intensity normalisation applied to all data equally after loading
+                 global_normalise='none',
+                 # at loading time: dict of functions applied to numpy image (before cropping)
+                 load_np_funs=None,
+                 # at loading time: applied to sample dictionary (after cropping)
+                 load_sample_funs=None,
                  batch_sample_transform=None,
                  # during batching: applied to sample (i.e. cropping of irregularly sized data, volume selection...)
                  number_of_threads=None,
@@ -37,7 +43,8 @@ class MRLoader(SlimDataLoaderBase):
         :param transform (callable, optional)
         """
         __metaclass__ = ABCMeta
-        super(MRLoader, self).__init__(None, batch_size, number_of_threads_in_multithreaded=number_of_threads)
+        super(MRLoader, self).__init__(None, batch_size,
+                                       number_of_threads_in_multithreaded=number_of_threads)
 
         # load data (not into _data)
         self.metadata = []
@@ -68,13 +75,16 @@ class MRLoader(SlimDataLoaderBase):
 
         self.import_functions = load_np_funs
         if self.import_functions is not None:
-            print(self.__class__.__name__+' load_np_funs:', str(self.import_functions))
+            print(self.__class__.__name__+' load_np_funs:',
+                  str(self.import_functions))
         self.data_postproc = load_sample_funs
         if self.data_postproc is not None:
-            print(self.__class__.__name__+' load_sample_funs:', str(self.data_postproc))
+            print(self.__class__.__name__ +
+                  ' load_sample_funs:', str(self.data_postproc))
 
         self._pp = pprint.PrettyPrinter(indent=4, width=160, depth=None)
-        self.log = lambda x: print(x) if isinstance(x, str) else self._pp.pprint(x)
+        self.log = lambda x: print(x) if isinstance(
+            x, str) else self._pp.pprint(x)
 
         self.imagedata = dict()
         self.log('loading data, cropped to mask: {}'.format(cropped_to_mask))
@@ -87,14 +97,16 @@ class MRLoader(SlimDataLoaderBase):
             imdata = {}
             for what in whats:
                 assert what in md, (md.keys(), self.paired)
-                importer = None if self.import_functions is None or what not in self.import_functions else self.import_functions[what]
+                importer = None if self.import_functions is None or what not in self.import_functions else self.import_functions[
+                    what]
                 impath = os.path.join(self.root_dir, md[what])
                 msk = None
                 if load_mask or cropped_to_mask:
                     assert 'mask_' + what in md, md.keys()
                     msk = os.path.join(self.root_dir, md['mask_' + what])
                 if not memmap:  # load images into RAM
-                    mif = self.__load_mif(impath, mask=msk if cropped_to_mask else None, fun=importer, name=what)
+                    mif = self.__load_mif(
+                        impath, mask=msk if cropped_to_mask else None, fun=importer, name=what)
                     imdata.update({what: mif[what]})  # overwrite imdata[what]
                     if what+'_md' in mif:
                         md[what+'_md'] = mif[what+'_md']
@@ -106,11 +118,14 @@ class MRLoader(SlimDataLoaderBase):
                             imdata.update({'mask_' + what: mif['mask']})
                         else:
                             assert not cropped_to_mask
-                            imdata.update({'mask_' + what: self.__load_mif(msk, mask=msk if cropped_to_mask else None)['im']})
+                            imdata.update(
+                                {'mask_' + what: self.__load_mif(msk, mask=msk if cropped_to_mask else None)['im']})
 
                 else:  # memory map images
-                    mif = self.__load_mif(impath, mask=msk if cropped_to_mask else None, fun=importer, memmap=memmap, name=what)
-                    imdata.update({what: mif[what], '_load_functions_' + what: mif['load_functions'], '_memmap_' + what: mif['memmap']})
+                    mif = self.__load_mif(
+                        impath, mask=msk if cropped_to_mask else None, fun=importer, memmap=memmap, name=what)
+                    imdata.update({what: mif[what], '_load_functions_' +
+                                   what: mif['load_functions'], '_memmap_' + what: mif['memmap']})
                     if what+'_md' in mif:
                         md[what+'_md'] = mif[what+'_md']
                     imdata[what + "_file"] = impath
@@ -121,7 +136,8 @@ class MRLoader(SlimDataLoaderBase):
                             imdata.update({'mask_' + what: mif['mask']})
                         else:
                             assert not cropped_to_mask
-                            imdata.update({'mask_' + what: self.__load_mif(msk, mask=msk if cropped_to_mask else None)['im']})
+                            imdata.update(
+                                {'mask_' + what: self.__load_mif(msk, mask=msk if cropped_to_mask else None)['im']})
 
             assert len(self.metadata) == idx, (len(self.metadata), idx)
 
@@ -136,9 +152,11 @@ class MRLoader(SlimDataLoaderBase):
                 self._memmap_original_metadata.append(md)
                 idx += 1
 
-            assert len(self.metadata) == idx and len(self.imagedata) == idx, (len(self.metadata), len(self.imagedata), idx)
+            assert len(self.metadata) == idx and len(
+                self.imagedata) == idx, (len(self.metadata), len(self.imagedata), idx)
 
-        self.log('loading of {} images in {} shards done'.format(len(metadata), len(self.metadata)))
+        self.log('loading of {} images in {} shards done'.format(
+            len(metadata), len(self.metadata)))
 
         # DKFZ batchgenerator, multi threading
         self.num_restarted = 0
@@ -169,7 +187,8 @@ class MRLoader(SlimDataLoaderBase):
                     result.append((imdat, mdat))
                 return result
             else:
-                assert isinstance(gen, dict) and 'imdata' in gen and 'metadata' in gen, str(gen)
+                assert isinstance(
+                    gen, dict) and 'imdata' in gen and 'metadata' in gen, str(gen)
                 return [(gen['imdata'], gen['metadata'])]
         else:
             assert self.data_postproc is None, str(self.data_postproc)
@@ -182,9 +201,11 @@ class MRLoader(SlimDataLoaderBase):
                 with tempfile.NamedTemporaryFile(dir=memmap_dir) as ntf:
                     self._memmap[what] = np.memmap(ntf,
                                                    mode='w+',
-                                                   shape=tuple(list([n_data] + self.imagedata[idx][what].shape)),
+                                                   shape=tuple(
+                                                       list([n_data] + self.imagedata[idx][what].shape)),
                                                    dtype=self.imagedata[idx][what].dtype)
-                    print("created memmap for idx %i %s at %s" % (idx, what, ntf.name))
+                    print("created memmap for idx %i %s at %s" %
+                          (idx, what, ntf.name))
             self._memmap[what][idx, :] = self.imagedata[idx][what][:]
             self.imagedata[idx][what] = None  # TODO
 
@@ -215,7 +236,8 @@ class MRLoader(SlimDataLoaderBase):
                 if what not in sample:
                     continue
                 shp = sample[what].shape
-                sample[what] = self.normalise.transform(sample[what].reshape(shp[0], -1)).reshape(shp)
+                sample[what] = self.normalise.transform(
+                    sample[what].reshape(shp[0], -1)).reshape(shp)
 
     def __bbox2_3D(self, img, pad=1):
         # https://stackoverflow.com/questions/31400769/bounding-box-of-numpy-array
@@ -229,7 +251,8 @@ class MRLoader(SlimDataLoaderBase):
         zmin, zmax = np.where(z)[0][[0, -1]]
         if pad:
             return max(0, rmin - pad), min(rmax + pad, shape[0] - 1), max(0, cmin - pad), \
-                   min(cmax + pad, shape[1] - 1), max(0, zmin - pad), min(zmax + pad, shape[2] - 1)
+                min(cmax + pad, shape[1] - 1), max(0,
+                                                   zmin - pad), min(zmax + pad, shape[2] - 1)
 
         return rmin, rmax, cmin, cmax, zmin, zmax
 
@@ -246,7 +269,8 @@ class MRLoader(SlimDataLoaderBase):
         assert path is not None
         assert os.path.isfile(path), 'can not find image %s' % (path)
 
-        ret = {name: None}  # stores image (H x W x D x C) --> (C x H x W x D), C-contiguous
+        # stores image (H x W x D x C) --> (C x H x W x D), C-contiguous
+        ret = {name: None}
 
         im = load_mrtrix(path, memmap=memmap).data
         if grad:
@@ -271,7 +295,8 @@ class MRLoader(SlimDataLoaderBase):
                 ret.update(self.__mask_image(im, mask, name, pad=pad))
             else:
                 bbox = 0, im.shape[0], 0, im.shape[1], 0, im.shape[2]
-                ret.update({name: self.__numpy2torch_transpose(im), "bbox": bbox})
+                ret.update(
+                    {name: self.__numpy2torch_transpose(im), "bbox": bbox})
         else:  # memory map
             functions = []
             if fun is not None:
@@ -282,9 +307,9 @@ class MRLoader(SlimDataLoaderBase):
             else:
                 bbox = 0, im.shape[0], 0, im.shape[1], 0, im.shape[2]
                 functions.append(self.__numpy2torch_transpose)
-                ret.update({"bbox": bbox, "load_functions": functions, "memmap": im})
+                ret.update(
+                    {"bbox": bbox, "load_functions": functions, "memmap": im})
         return ret
-
 
     def __numpy2torch_transpose(self, x):
         return x.transpose((3, 0, 1, 2)).copy()
@@ -308,7 +333,8 @@ class MRLoader(SlimDataLoaderBase):
 
     def __getitem__(self, idx):
         if idx not in self.imagedata:
-            raise Exception('key %i not in imagedata (%i, %i)' % (idx, min(self.imagedata.keys()), max(self.imagedata.keys())))
+            raise Exception('key %i not in imagedata (%i, %i)' % (
+                idx, min(self.imagedata.keys()), max(self.imagedata.keys())))
 
         sample = self.imagedata[idx]
 
@@ -329,7 +355,8 @@ class MRLoader(SlimDataLoaderBase):
             for k in toload:
                 im = sample['_memmap_' + k]
                 assert im is not None
-                assert len(sample.get('_load_functions_'+k, [])), sample.get('_load_functions_'+k, [])
+                assert len(sample.get('_load_functions_'+k, [])
+                           ), sample.get('_load_functions_'+k, [])
                 for f_load in sample.get('_load_functions_'+k, []):
                     im = f_load(im)
                     if isinstance(im, dict):
@@ -363,7 +390,8 @@ class MRLoader(SlimDataLoaderBase):
             elif isinstance(items[0][k], tuple):
                 res[k] = tuple(c)
             else:
-                raise ValueError("key %s: don't know how to join instances of %s to a batch" % (k, str(type(items[0][k]))))
+                raise ValueError("key %s: don't know how to join instances of %s to a batch" % (
+                    k, str(type(items[0][k]))))
         return res
 
     def generate_train_batch(self):
