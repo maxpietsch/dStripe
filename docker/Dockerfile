@@ -90,6 +90,7 @@ RUN conda update --name base --channel defaults conda && \
     conda env create --prefix $ENV_PREFIX --file /tmp/environment.yml --force && \
     conda clean --all --yes
 
+WORKDIR $HOME
 ENTRYPOINT [ "/usr/local/bin/entrypoint.sh" ]
 
 CMD ["/bin/bash"]
