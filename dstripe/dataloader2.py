@@ -406,22 +406,28 @@ def mr_producer(queue, data_loader, transform, thread_id, seed):
         queue.put("end")
 
 
+# class MRMultiThreadedAugmenter(MultiThreadedAugmenter):
+# """ outdated, used for batchgen 91feb74747bfcfb9514d509fb13b854a37847b4d """
+#     @property
+#     def dataset(self):  # compatibility with torch
+#         return self.generator
+
+#     def _start(self):
+#         if len(self._threads) == 0:
+#             logging.debug("starting workers")
+#             self._queue_loop = 0
+#             self._end_ctr = 0
+
+#             for i in range(self.num_processes):
+#                 logging.debug("starting worker %i" % i)
+#                 self._queues.append(MPQueue(self.num_cached_per_queue))
+#                 self._threads.append(Process(target=mr_producer, args=(self._queues[i], self.generator, self.transform, i, self.seeds[i])))
+#                 self._threads[-1].daemon = True
+#                 self._threads[-1].start()
+#         else:
+#             logging.debug("MultiThreadedGenerator Warning: start() has been called but workers are already running")
+
 class MRMultiThreadedAugmenter(MultiThreadedAugmenter):
     @property
     def dataset(self):  # compatibility with torch
         return self.generator
-
-    def _start(self):
-        if len(self._threads) == 0:
-            logging.debug("starting workers")
-            self._queue_loop = 0
-            self._end_ctr = 0
-
-            for i in range(self.num_processes):
-                logging.debug("starting worker %i" % i)
-                self._queues.append(MPQueue(self.num_cached_per_queue))
-                self._threads.append(Process(target=mr_producer, args=(self._queues[i], self.generator, self.transform, i, self.seeds[i])))
-                self._threads[-1].daemon = True
-                self._threads[-1].start()
-        else:
-            logging.debug("MultiThreadedGenerator Warning: start() has been called but workers are already running")
