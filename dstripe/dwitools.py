@@ -19,7 +19,8 @@ def balanced_sample_maker(X, y, class_sample_size=10, shuffle=False, random_seed
     sample_size = min(class_sample_size, min(uniq_counts.values()))
     balanced_copy_idx = []
     for group in sorted(groupby_levels.keys()):
-        under_sample_idx = sorted(np.random.choice(groupby_levels[group], size=sample_size, replace=False).tolist())
+        under_sample_idx = sorted(np.random.choice(
+            groupby_levels[group], size=sample_size, replace=False).tolist())
         balanced_copy_idx += under_sample_idx
     if shuffle:
         np.random.shuffle(balanced_copy_idx)
@@ -51,21 +52,23 @@ def get_n_bbalanced(arr, n=20, gradient=None):
     # TODO: read dwischeme from metadata
     if gradient is None:
         if arr.shape[3] == 300:
-            grad = np.round(np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dhcp300.txt'))[:, 3]).astype(int)
+            grad = np.round(np.loadtxt(os.path.join(os.path.dirname(
+                os.path.abspath(__file__)), 'dhcp300.txt'))[:, 3]).astype(int)
         elif arr.shape[3] == 288:
-            grad = np.round(np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hcp288.txt'))[:, 3]).astype(int)
+            grad = np.round(np.loadtxt(os.path.join(os.path.dirname(
+                os.path.abspath(__file__)), 'hcp288.txt'))[:, 3]).astype(int)
         else:
-            raise NotImplementedError("TODO: use grad from metadata " + str(arr.shape))
+            raise NotImplementedError(
+                "TODO: use grad from metadata " + str(arr.shape))
     else:
         assert gradient.shape[0] == arr.shape[0], (gradient.shape, arr.shape)
     X = np.arange(arr.shape[3])[:, None]
     y = grad[:, None]
-    X_sel, y_sel = balanced_sample_maker(X, y, class_sample_size=n//len(np.unique(y)))
+    X_sel, y_sel = balanced_sample_maker(
+        X, y, class_sample_size=n//len(np.unique(y)))
     arr = arr[..., X_sel.ravel()]
     assert arr.ndim == 4, arr.shape
-    # return arr
     return {'imdata': arr, 'metadata': {'b': y[X_sel.ravel()].tolist(), 'volume': X_sel.ravel().tolist()}}
-
 
 
 def b0stats(im, md):
@@ -78,7 +81,7 @@ def b0stats(im, md):
 def b0matchnormalise_fun(im, md):
     assert 'mask_source' in im, im.keys()
     assert 'source' in im, im.keys()
-    v = md['b0stats'][1] / np.percentile(im['source'][im['mask_source']>0.5], 99)
+    v = md['b0stats'][1] / np.percentile(im['source'][im['mask_source'] > 0.5], 99)
     im['source'] *= v
     md['scaled'] = v
 
@@ -96,10 +99,10 @@ def normalise_fun(im, md, p=99):
 def normalise_fun_affine(im, md):
     assert 'mask_source' in im, im.keys()
     assert 'source' in im, im.keys()
-    o = np.percentile(im['source'][im['mask_source']>0.5], 1)
+    o = np.percentile(im['source'][im['mask_source'] > 0.5], 1)
     im['source'] -= o
     md['offset'] = o
-    v = 1.0 / np.percentile(im['source'][im['mask_source']>0.5], 99)
+    v = 1.0 / np.percentile(im['source'][im['mask_source'] > 0.5], 99)
     im['source'] *= v
     md['scaled'] = v
     return im, md
@@ -122,7 +125,7 @@ def split_by_vol(imagedata, metadata, vols_=None, normalise_fun=normalise_fun, p
             im = dict()
             im['vol'] = vol
             for k in imdata.keys():
-                if isinstance(imdata[k],np.ndarray) and imdata[k].shape[0]>1:
+                if isinstance(imdata[k], np.ndarray) and imdata[k].shape[0] > 1:
                     assert imdata[k].shape[0] > vol, (imdata[k].shape, vol)
                     im[k] = np.expand_dims(imdata[k][vol], 0)
                     assert im[k].ndim == 4, (k, imdata[k], im[k].shape)
@@ -164,7 +167,6 @@ class VolumeLoader(object):
                 v = metadata[k + '_md'].get('volume', None)
                 if v is not None:  # volumes were preselected
                     im['vol'] = v[vol]
-        import pprint
         # {'imdata': arr, 'metadata': {'b': bs[X_sel.ravel()[vol]], 'volume': vol}}
         if self.normalise_fun is not None:
             im, md = self.normalise_fun(im, md)
@@ -174,7 +176,8 @@ class VolumeLoader(object):
 def get_one_bbalanced(arr):
     assert arr.ndim == 4, arr.shape
     # TODO: read dwischeme from metadata
-    bs = np.round(np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dhcp300.txt'))[:arr.shape[3], 3]).astype(int)
+    bs = np.round(np.loadtxt(os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), 'dhcp300.txt'))[:arr.shape[3], 3]).astype(int)
     assert arr.shape[3] == 300, arr.shape
     X = np.arange(arr.shape[3])[:, None]
     y = bs[:, None]
