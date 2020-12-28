@@ -9,7 +9,12 @@ import pickle
 from bisect import bisect_right
 from torch.optim.optimizer import Optimizer
 
+# Learning rate scheduler base class and individual schedulers taken from
 # https://github.com/thomasjpfan/pytorch/blob/401ec389db2c9d2978917a6e4d1101b20340d7e7/torch/optim/lr_scheduler.py#L368
+# now part of pytorch
+# https://github.com/pytorch/pytorch/blob/master/torch/optim/lr_scheduler.py
+# see LICENSE https://github.com/pytorch/pytorch/blob/master/LICENSE
+
 class _LRScheduler(object):
     def __init__(self, optimizer, last_epoch=-1):
         if not isinstance(optimizer, Optimizer):
@@ -24,7 +29,8 @@ class _LRScheduler(object):
                 if 'initial_lr' not in group:
                     raise KeyError("param 'initial_lr' is not specified "
                                    "in param_groups[{}] when resuming an optimizer".format(i))
-        self.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
+        self.base_lrs = list(
+            map(lambda group: group['initial_lr'], optimizer.param_groups))
         self.step(last_epoch + 1)
         self.last_epoch = last_epoch
 
@@ -60,6 +66,7 @@ class LambdaLR(_LRScheduler):
         >>>     train(...)
         >>>     validate(...)
     """
+
     def __init__(self, optimizer, lr_lambda, last_epoch=-1):
         self.optimizer = optimizer
         if not isinstance(lr_lambda, list) and not isinstance(lr_lambda, tuple):
@@ -468,25 +475,33 @@ class CyclicLR(object):
         x = np.abs(self.last_batch_iteration / step_size - 2 * cycle + 1)
 
         lrs = []
-        param_lrs = zip(self.optimizer.param_groups, self.base_lrs, self.max_lrs)
+        param_lrs = zip(self.optimizer.param_groups,
+                        self.base_lrs, self.max_lrs)
         for param_group, base_lr, max_lr in param_lrs:
             base_height = (max_lr - base_lr) * np.maximum(0, (1 - x))
             if self.scale_mode == 'cycle':
-                lr = self._decay(x) * (base_lr + base_height * self.scale_fn(cycle))
+                lr = self._decay(
+                    x) * (base_lr + base_height * self.scale_fn(cycle))
             else:
-                lr = self._decay(x) * (base_lr + base_height * self.scale_fn(self.last_batch_iteration))
+                lr = self._decay(x) * (base_lr + base_height *
+                                       self.scale_fn(self.last_batch_iteration))
             lrs.append(lr)
         return lrs
 
+
 def save_model(m, p): torch.save(m.state_dict(), p)
+
+
 def load_model(m, p):
     sd = torch.load(p, map_location=lambda storage, loc: storage)
     names = set(m.state_dict().keys())
-    for n in list(sd.keys()): # list "detatches" the iterator
+    for n in list(sd.keys()):  # list "detatches" the iterator
         if n not in names and n+'_raw' in names:
-            if n+'_raw' not in sd: sd[n+'_raw'] = sd[n]
+            if n+'_raw' not in sd:
+                sd[n+'_raw'] = sd[n]
             del sd[n]
     m.load_state_dict(sd)
+
 
 def save_checkpoint(state, is_best, save_path, filename):
     filename = os.path.join(save_path, filename)
@@ -502,27 +517,28 @@ def save_checkpoint(state, is_best, save_path, filename):
 #           'optimizer_state_dict': opt.state_dict(),
 #         }, is_best, OUT_DIR, 'checkpoint.pth.tar')
 
+
 def load_checkpoint(load_path, model, optimizer):
     """ loads state into model and optimizer and returns:
         epoch, loss_val, loss_train
     """
     if os.path.isfile(load_path):
         print("=> loading checkpoint '{}'".format(load_path))
-        checkpoint = torch.load(load_path, map_location=lambda storage, loc: storage)
+        checkpoint = torch.load(
+            load_path, map_location=lambda storage, loc: storage)
         epoch = checkpoint['epoch']
         loss_val = checkpoint['loss_val']
         loss_train = checkpoint['loss_train']
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        print("=> loaded checkpoint '{}' (epoch {})".format(epoch, checkpoint['epoch']))
+        print("=> loaded checkpoint '{}' (epoch {})".format(
+            epoch, checkpoint['epoch']))
         return epoch, loss_val, loss_train
     else:
         print("=> no checkpoint found at '{}'".format(load_path))
         # epoch, best_precision, loss_train
         return 1, 0, []
 
-
-# TODO cyclical learner https://github.com/thomasjpfan/pytorch/blob/401ec389db2c9d2978917a6e4d1101b20340d7e7/torch/optim/lr_scheduler.py#L368
 
 class Learner(object):
     def __init__(self, model, data_gen, train_step_fun, loss_func, optimiser_fun=torch.optim.Adam, cuda=True, figpath=None):
@@ -542,19 +558,20 @@ class Learner(object):
         ax.set_ylabel('cost')
         start = 0
         for lr in self._lr_cost:
-            ax.plot(np.arange(len(self._lr_cost[lr]))+start, [x[0]/x[1] for x in self._lr_cost[lr]], label='%.2e'%(lr))
+            ax.plot(np.arange(len(self._lr_cost[lr]))+start, [x[0]/x[1]
+                                                              for x in self._lr_cost[lr]], label='%.2e' % (lr))
             start += len(self._lr_cost[lr])
             plt.legend()
             fig.canvas.draw()
             # plt.show()
 
-    def find_learning_rate(self, learning_rates = np.logspace(-7,1, 9), epochs_per_lr=5, relcost_stop=None, **kwargs):
+    def find_learning_rate(self, learning_rates=np.logspace(-7, 1, 9), epochs_per_lr=5, relcost_stop=None, **kwargs):
         self._lr_cost = dict()
         self.tmp_model = copy.deepcopy(self.model)
         if self.cuda:
             self.tmp_model = self.tmp_model.cuda()
         best_cost = np.inf
-        fig, ax = plt.subplots(1,1)
+        fig, ax = plt.subplots(1, 1)
         epoch_cost = np.nan
         for lr in learning_rates:
             opt = self.optimiser_fun(self.tmp_model.parameters(), lr=lr)
@@ -562,7 +579,8 @@ class Learner(object):
             for step in range(epochs_per_lr):
                 epoch_cost = 0
                 for sample in self.data:
-                    cost = self.train_step_fun(sample, self.tmp_model, opt, self.loss_func, self.cuda, **kwargs)
+                    cost = self.train_step_fun(
+                        sample, self.tmp_model, opt, self.loss_func, self.cuda, **kwargs)
                     epoch_cost += cost[0]
                     self._lr_cost[lr].append(cost)
                     # if len(self._lr_cost[lr]) > 1:
@@ -581,13 +599,14 @@ class Learner(object):
                     best_cost = epoch_cost
 
             if not relcost_stop is None and relcost_stop > (cost[0] / cost[1]):
-                print('relcost_stop reached', cost[0], cost[1], cost[0] / cost[1])
+                print('relcost_stop reached',
+                      cost[0], cost[1], cost[0] / cost[1])
                 return False
 
             if epoch_cost > (best_cost * 1.5):
-                print ('stopping at lr (best loss)', lr, epoch_cost/best_cost)
-                fig,ax = plt.subplots(1,1)
-                self._plot_lr(fig,ax)
+                print('stopping at lr (best loss)', lr, epoch_cost/best_cost)
+                fig, ax = plt.subplots(1, 1)
+                self._plot_lr(fig, ax)
                 return True
 
             if len(self._lr_cost) > 1:
@@ -597,11 +616,10 @@ class Learner(object):
                     if _lr != lr:
                         pmean = min(np.mean(self._lr_cost[_lr]), pmean)
                 if cmean > (pmean * 1.5):
-                    print ('stopping at lr (increased mean loss)', lr, cmean/pmean)
-                    fig,ax = plt.subplots(1,1)
-                    self._plot_lr(fig,ax)
+                    print('stopping at lr (increased mean loss)', lr, cmean/pmean)
+                    fig, ax = plt.subplots(1, 1)
+                    self._plot_lr(fig, ax)
                     return True
 
         # self.model.load_state_dict(self.tmp_model.state_dict())
         # opt2.load_state_dict(opt1.state_dict())
-
