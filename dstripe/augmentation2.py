@@ -1,26 +1,15 @@
-#
-# designed to be compatible with batchgenerators
-#
-#
-# ________________ AUGMENTATIONS _______________
+# augmentations designed to be compatible with batchgenerators
 
-import random, math
+from batchgenerators.transforms.abstract_transforms import AbstractTransform
+import random
+import math
 import numpy as np
 from builtins import range
 # from batchgenerators.augmentations.utils import get_range_val
 # from scipy.ndimage import gaussian_filter
 # from batchgenerators.augmentations.noise_augmentations import augment_gaussian_blur
 
-
-# def augment_rician_noise(data, noise_variance=(0, 0.1)):
-#     for sample_idx in range(data.shape[0]):
-#         sample = data[sample_idx]
-#         variance = random.uniform(noise_variance[0], noise_variance[1])
-#         sample = np.sqrt(
-#             (sample + np.random.normal(0.0, variance, size=sample.shape)) ** 2 +
-#             np.random.normal(0.0, variance, size=sample.shape) ** 2)
-#         data[sample_idx] = sample
-#     return data
+# ________________ AUGMENTATIONS _______________
 
 
 def interleave_pattern(nstripes, interleave=3):
@@ -28,14 +17,12 @@ def interleave_pattern(nstripes, interleave=3):
     v_idx = np.cumsum(np.ones(nstripes)) - 1
     for mm in range(m):
         idx = np.mod(v_idx, m) == mm
-        # print(m, mm, idx[:10])
         yield idx
 
 
 def rice_stripe_pattern(nstripes, noise_variance=(0.1, 0.1), centre_variance=(0.8, 1.2), epsilon=1e-5):
     variance = random.uniform(*noise_variance)
     centre = random.uniform(*centre_variance)
-    # print(centre, variance)
     return np.maximum(np.sqrt(np.random.normal(loc=centre, scale=variance, size=nstripes) ** 2), epsilon)
 
 
@@ -44,7 +31,7 @@ def affine_block_pattern(nstripes, block_size=16, centre_range=(1., 1.), slope_r
     pattern = np.ones(nstripes)
     slope_sign = 1
     if flip_slope:
-        slope_sign = np.random.choice([-1,1])
+        slope_sign = np.random.choice([-1, 1])
     for block in range(math.ceil(float(nstripes)/block_size)):
         start, stop = block*block_size, min((block+1)*block_size, nstripes)
         nsl = stop - start
@@ -54,6 +41,7 @@ def affine_block_pattern(nstripes, block_size=16, centre_range=(1., 1.), slope_r
             pattern[start:stop] = np.linspace(0, nsl*slope, num=nsl)
             pattern[start:stop] += centre - pattern[start:stop].mean()
     return pattern
+
 
 def augment_rot90(data, rotations, planes):
     """ applies random 90 degree rotation
@@ -81,8 +69,6 @@ def augment_flip(data, flips):
 
 # ________________ TRANSFORMS _______________
 
-from batchgenerators.transforms.abstract_transforms import AbstractTransform
-
 
 # ________________ utility ________________
 
@@ -104,8 +90,8 @@ class GetState(AbstractTransform):
         nrs = np.random.get_state()
         rs = random.getstate()
         print('<---------------- state:', np.random.choice(1000), random.random(), np.random.rand(),
-                      np.sum(rs[1][:-1]), np.sum(rs[1][-1]),
-                      np.sum(nrs[1][:-1]), np.sum(nrs[1][-1]),
+              np.sum(rs[1][:-1]), np.sum(rs[1][-1]),
+              np.sum(nrs[1][:-1]), np.sum(nrs[1][-1]),
               '------------------------>')
         return sample
 
@@ -127,7 +113,8 @@ class DebugLoadTransform(AbstractTransform):
         import time
         t = time.time
         u = t() + 10
-        while t() < u: 1
+        while t() < u:
+            1
 
         return data_dict
 
@@ -142,7 +129,8 @@ class DebugTransform(AbstractTransform):
 
     def __call__(self, **data_dict):
         assert data_dict is not None
-        print("DebugTransform:", 'idx:', data_dict.get('idx', "none"), data_dict.keys())
+        print("DebugTransform:", 'idx:', data_dict.get(
+            'idx', "none"), data_dict.keys())
         # import time
         # t = time.time
         # u = t() + 10
@@ -160,7 +148,8 @@ class KeyRename(AbstractTransform):
         self.keys_map = keys_map
 
     def __call__(self, **data_dict):
-        assert self.keys_map[0][0] in data_dict.keys() or self.keys_map[0][1] in data_dict.keys(), data_dict.keys()
+        assert self.keys_map[0][0] in data_dict.keys(
+        ) or self.keys_map[0][1] in data_dict.keys(), data_dict.keys()
         source = 1 - int(self.keys_map[0][0] in data_dict.keys())
         target = 1 - source
 
@@ -169,6 +158,7 @@ class KeyRename(AbstractTransform):
                 data_dict[keys[target]] = data_dict.pop(keys[source])
 
         return data_dict
+
 
 class RndChoiceTransform(AbstractTransform):
     """Applies a transformation from a list of transformations, optionally also no transformation
@@ -224,14 +214,16 @@ class GeneralStripeTransform(AbstractTransform):
 
     def __call__(self, **data_dict):
         if self.copy2target:
-            assert 'target' not in data_dict, (data_dict.keys(), data_dict.get('augment_log', None))
+            assert 'target' not in data_dict, (data_dict.keys(
+            ), data_dict.get('augment_log', None))
             data_dict['target'] = data_dict[self.data_key].copy()
 
         sample = data_dict[self.data_key]
 
         # check mode is specified, if so, only perform if mode matches or unspecified
         if self.modes is not None and len(self.modes):
-            if 'mode' in data_dict:  # mode augmentation used (otherwise assume default mode)
+            # mode augmentation used (otherwise assume default mode)
+            if 'mode' in data_dict:
                 assert len(set(data_dict['mode'])) == 1, data_dict['mode']
 
                 if data_dict['mode'][0] is not None and data_dict['mode'][0] not in self.modes:
@@ -257,8 +249,8 @@ class GeneralStripeTransform(AbstractTransform):
                                               noise_variance=self.noise_variance)
             if self.block_size > 2:
                 pattern_block = affine_block_pattern(nstripes, block_size=self.block_size, centre_range=(1., 1.),
-                                                          slope_range=self.block_slope_range,
-                                                          flip_slope=self.flip_slope)
+                                                     slope_range=self.block_slope_range,
+                                                     flip_slope=self.flip_slope)
             if self.power != 1.0:
                 pattern = np.power(pattern, self.power)
                 pattern_block = np.power(pattern_block, self.power)
@@ -282,7 +274,9 @@ class GeneralStripeTransform(AbstractTransform):
         if self.interleave > 1:
             params = params + ', interleave={0}'.format(self.interleave)
         if self.block_size > 1:
-            params = params + ', block_size={0}, block_slope_range={1}'.format(self.block_size, self.block_slope_range)
+            params = params + \
+                ', block_size={0}, block_slope_range={1}'.format(
+                    self.block_size, self.block_slope_range)
         if self.power != 1.0:
             params = params + ', power={0}'.format(self.power)
         if self.modes is not None and len(self.modes):
@@ -321,18 +315,22 @@ class AxialSliceDir(AbstractTransform):
         elif mode.upper() == 'LR':
             planes, rotations = [[-1, -3]], [random.choice([-3, -1, 1, 3])]
         else:
-            assert 0, "mode not understood, require (('AP'), ('LR')): {}".format(self.modes)
+            assert 0, "mode not understood, require (('AP'), ('LR')): {}".format(
+                self.modes)
 
         for isample in range(batchsize):
-            data_dict['augment_log'][isample].append(('augment_rot90', rotations, planes))
+            data_dict['augment_log'][isample].append(
+                ('augment_rot90', rotations, planes))
         for data_field in self.data_fields:
             if not data_field in data_dict:
                 continue
             data_tmp[data_field] = []
             for isample in range(batchsize):
-                data_tmp[data_field].append(augment_rot90(data_dict[data_field][isample], rotations, planes))
+                data_tmp[data_field].append(augment_rot90(
+                    data_dict[data_field][isample], rotations, planes))
             data_dict[data_field] = np.stack(data_tmp[data_field], 0)
         return data_dict
+
 
 class RandomDihedralSliceDirPreserving(AbstractTransform):
     """
@@ -364,7 +362,8 @@ class RandomDihedralSliceDirPreserving(AbstractTransform):
             if self.determinant_preserving and len(flip) % 2 != 0:
                 flips = random.shuffle(flips)[:-2]
         for isample in range(batch_size):
-            data_dict['augment_log'][isample].append(('augment_rot90', rotations, planes))
+            data_dict['augment_log'][isample].append(
+                ('augment_rot90', rotations, planes))
             if len(flips):
                 data_dict['augment_log'][isample].append(('flips', flips))
         for data_field in self.data_fields:
@@ -372,7 +371,8 @@ class RandomDihedralSliceDirPreserving(AbstractTransform):
                 continue
             data_temp = []
             for isample in range(batch_size):
-                data_temp.append(augment_rot90(data_dict[data_field][isample], rotations, planes))
+                data_temp.append(augment_rot90(
+                    data_dict[data_field][isample], rotations, planes))
                 if len(flips):
                     data_temp[-1] = augment_flip(data_temp[-1], tuple(flips))
             data_dict[data_field] = np.array(data_temp)
@@ -382,7 +382,6 @@ class RandomDihedralSliceDirPreserving(AbstractTransform):
 class UndoDihedral(AbstractTransform):
     def __init__(self, data_fields=('source', 'target', 'output', 'mask_source', 'mask_target')):
         self.data_fields = data_fields
-
 
     def __call__(self, **data_dict):
         batch_size = data_dict[self.data_fields[0]].shape[0]
@@ -396,10 +395,12 @@ class UndoDihedral(AbstractTransform):
                 assert isinstance(op[0], str), op
                 if op[0] == 'augment_rot90':
                     assert len(op) == 3, (op, auglog)
-                    operations.append((op[0], [-r for r in op[1]], op[2]))  # invert number of rotations
+                    # invert number of rotations
+                    operations.append((op[0], [-r for r in op[1]], op[2]))
                 elif op[0] == 'flips':
                     assert len(op) == 2, (op, auglog)
-                    operations.append((op[0], [f for f in op[1][::-1]]))  # reverse order of flips
+                    # reverse order of flips
+                    operations.append((op[0], [f for f in op[1][::-1]]))
                 else:
                     print(self.__class__.__name__+' not understood:', op)
             operations = operations[::-1]  # invert order
@@ -429,6 +430,7 @@ class UndoDihedral(AbstractTransform):
                 assert 0, type(tmp)
 
         return data_dict
+
 
 class TensorToNumpy(AbstractTransform):
     def __init__(self, keys=None):
