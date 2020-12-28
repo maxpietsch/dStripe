@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
@@ -10,9 +11,11 @@ from utils.mif import load_mrtrix
 import sklearn
 from sklearn.model_selection import train_test_split
 
+
 class SampleCropToMask4D(object):
     """ Spatial crop of 4D image in centre, jiggle centre by +- jiggle voxels (uniform)
     """
+
     def __init__(self):
         pass
 
@@ -29,9 +32,10 @@ class SampleCropToMask4D(object):
         assert 0, 'TODO'
         return sample_out
 
+
 class SampleVolumeExtract(object):
     def __init__(self, volumes=slice(None), volgroups=None):
-        self.slice = [Ellipsis,volumes]
+        self.slice = [Ellipsis, volumes]
         if volgroups is not None:
             self.slice.append(volgroups)
         self.slice = tuple(self.slice)
@@ -50,6 +54,7 @@ class SampleVolumeExtract(object):
             sample_out[k] = sample[k]
 
         return sample_out
+
 
 class SampleToTensor4D(object):
     """Convert a ``numpy.ndarray`` to tensor without rescaling (as opposed to torchvision.transforms.ToTensor).
@@ -85,6 +90,7 @@ class SampleToTensor4D(object):
 
         return sample_out
 
+
 class Compose(object):
     """Composes several transforms together.
     Args:
@@ -112,6 +118,7 @@ class Compose(object):
         format_string += '\n)'
         return format_string
 
+
 class ZCANormalise(object):
     def __init__(self, epsilon=1e-5):
         self.ZCAMatrix = None
@@ -126,20 +133,20 @@ class ZCANormalise(object):
             Columns: Observations
         OUTPUT: ZCAMatrix: [M x M] matrix
         """
-        self.mean = X.mean(1)[...,None]
+        self.mean = X.mean(1)[..., None]
 
         # Covariance matrix [column-wise variables]: Sigma = (X-mu)' * (X-mu) / N
-        sigma = np.cov(X, rowvar=True) # [M x M]
+        sigma = np.cov(X, rowvar=True)  # [M x M]
         # Singular Value Decomposition. X = U * np.diag(S) * V
-        U,S,V = np.linalg.svd(sigma)
-            # U: [M x M] eigenvectors of sigma.
-            # S: [M x 1] eigenvalues of sigma.
-            # V: [M x M] transpose of U
+        U, S, V = np.linalg.svd(sigma)
+        # U: [M x M] eigenvectors of sigma.
+        # S: [M x 1] eigenvalues of sigma.
+        # V: [M x M] transpose of U
         # Whitening constant: prevents division by zero
 
         # ZCA Whitening matrix: U * Lambda * U'
-        self.ZCAMatrix = np.dot(U, np.dot(np.diag(1.0/np.sqrt(S + self.epsilon)), U.T)) # [M x M]
-
+        self.ZCAMatrix = np.dot(
+            U, np.dot(np.diag(1.0/np.sqrt(S + self.epsilon)), U.T))  # [M x M]
 
     def transform(self, X):
         assert self.ZCAMatrix is not None
@@ -151,6 +158,7 @@ class ZCANormalise(object):
     @property
     def scale_offset(self):
         raise NotImplementedError('TODO: scale_offset')
+
 
 class MeanStdNormalise(object):
     def __init__(self, epsilon=1e-5):
@@ -175,6 +183,7 @@ class MeanStdNormalise(object):
     @property
     def scale_offset(self):
         return self.std + self.epsilon, self.mean
+
 
 class MinMaxNormalise(object):
     def __init__(self):
@@ -229,10 +238,10 @@ class PercentileNormalise(object):
     def fit(self, X):
         assert len(X.shape) == 2
         if not self.lo_zero:
-            self.lo = np.percentile(X,self.p[0], axis=1)
+            self.lo = np.percentile(X, self.p[0], axis=1)
         else:
             self.lo = 0
-        self.hi = np.percentile(X,self.p[1], axis=1)
+        self.hi = np.percentile(X, self.p[1], axis=1)
 
     def transform(self, X):
         assert self.lo is not None
@@ -281,13 +290,15 @@ class SHPairedDataset4D(torch.utils.data.Dataset):
 
         self.import_functions = import_functions
         if self.import_functions is not None:
-            print('SHPairedDataset4D import_functions:',str(self.import_functions))
+            print('SHPairedDataset4D import_functions:',
+                  str(self.import_functions))
         self.data_postproc = data_postproc
         if self.data_postproc is not None:
-            print('SHPairedDataset4D data_postproc:',str(self.data_postproc))
+            print('SHPairedDataset4D data_postproc:', str(self.data_postproc))
 
         self._pp = pprint.PrettyPrinter(indent=4, width=160, depth=None)
-        self.log = lambda x: print (x) if isinstance(x, str) else self._pp.pprint(x)
+        self.log = lambda x: print(x) if isinstance(
+            x, str) else self._pp.pprint(x)
 
         # pre-load images into RAM
         self.imagedata = dict()
@@ -302,7 +313,8 @@ class SHPairedDataset4D(torch.utils.data.Dataset):
             imdata = {}
             for what in whats:
                 assert what in md, (md.keys(), self.paired)
-                importer = None if self.import_functions is None or what not in self.import_functions else self.import_functions[what]
+                importer = None if self.import_functions is None or what not in self.import_functions else self.import_functions[
+                    what]
                 impath = os.path.join(self.root_dir, md[what])
                 msk = None
                 if load_mask or cropped_to_mask:
@@ -312,10 +324,12 @@ class SHPairedDataset4D(torch.utils.data.Dataset):
                 # image = load_mrtrix(impath)
                 # if hasattr(image, 'grad'):
                 #     md[what+'_grad'] = image.grad
-                imdata.update({what: self.__load_mif(impath, mask=msk if cropped_to_mask else None, fun=importer)})
+                imdata.update({what: self.__load_mif(
+                    impath, mask=msk if cropped_to_mask else None, fun=importer)})
                 imdata[what+"_file"] = impath
                 if load_mask:
-                    imdata.update({'mask_'+what: self.__load_mif(msk, mask=msk if cropped_to_mask else None)})
+                    imdata.update(
+                        {'mask_'+what: self.__load_mif(msk, mask=msk if cropped_to_mask else None)})
             assert len(self.metadata) == idx, (len(self.metadata), idx)
             import types
             if isinstance(self.data_postproc, types.FunctionType) or callable(self.data_postproc):
@@ -326,7 +340,8 @@ class SHPairedDataset4D(torch.utils.data.Dataset):
                         self.metadata.append(mdat)
                         idx += 1
                 else:
-                    assert isinstance(gen, dict) and 'imdata' in gen and 'metadata' in gen, str(gen)
+                    assert isinstance(
+                        gen, dict) and 'imdata' in gen and 'metadata' in gen, str(gen)
                     self.imagedata[idx] = gen['imdata']
                     self.metadata.append(gen['metadata'])
                     idx += 1
@@ -336,9 +351,11 @@ class SHPairedDataset4D(torch.utils.data.Dataset):
                 self.metadata.append(md)
                 idx += 1
 
-            assert len(self.metadata) == idx and len(self.imagedata) == idx, (len(self.metadata), len(self.imagedata), idx)
+            assert len(self.metadata) == idx and len(
+                self.imagedata) == idx, (len(self.metadata), len(self.imagedata), idx)
 
-        self.log('loading of {} images in {} shards done'.format(len(metadata), len(self.metadata)))
+        self.log('loading of {} images in {} shards done'.format(
+            len(metadata), len(self.metadata)))
 
     def __len__(self):
         assert len(self.metadata) == len(self.imagedata)
@@ -350,10 +367,10 @@ class SHPairedDataset4D(torch.utils.data.Dataset):
             print('target not used for normalisation')
         for sample in self.imagedata.values():
             im = sample['source']
-            X = im.reshape(im.shape[0],-1)
+            X = im.reshape(im.shape[0], -1)
             if masked and 'mask_source' in sample and sample['mask_source'] is not None:
                 m = sample['mask_source']
-                Xs.append(X[:,m.ravel()>0.5])
+                Xs.append(X[:, m.ravel() > 0.5])
             else:
                 Xs.append(X)
 
@@ -361,12 +378,12 @@ class SHPairedDataset4D(torch.utils.data.Dataset):
 
     def apply_normalise(self):
         for sample in self.imagedata.values():
-            for what in ['source','target']:
+            for what in ['source', 'target']:
                 if what not in sample:
                     continue
                 shp = sample[what].shape
-                sample[what] = self.normalise.transform(sample[what].reshape(shp[0],-1)).reshape(shp)
-
+                sample[what] = self.normalise.transform(
+                    sample[what].reshape(shp[0], -1)).reshape(shp)
 
     def __bbox2_3D(self, img, pad=1):
         # https://stackoverflow.com/questions/31400769/bounding-box-of-numpy-array
@@ -379,7 +396,7 @@ class SHPairedDataset4D(torch.utils.data.Dataset):
         cmin, cmax = np.where(c)[0][[0, -1]]
         zmin, zmax = np.where(z)[0][[0, -1]]
         if pad:
-            return max(0,rmin-pad), min(rmax+pad, shape[0]-1), max(0,cmin-pad), min(cmax+pad, shape[1]-1), max(0,zmin-pad), min(zmax+pad, shape[2]-1)
+            return max(0, rmin-pad), min(rmax+pad, shape[0]-1), max(0, cmin-pad), min(cmax+pad, shape[1]-1), max(0, zmin-pad), min(zmax+pad, shape[2]-1)
 
         return rmin, rmax, cmin, cmax, zmin, zmax
 
@@ -399,15 +416,17 @@ class SHPairedDataset4D(torch.utils.data.Dataset):
             assert os.path.isfile(mask), 'can not find mask %s' % (mask)
             mask = load_mrtrix(mask).data
             if len(mask.shape) == 3:
-                mask = mask[...,None]
+                mask = mask[..., None]
             xmin, xmax, ymin, ymax, zmin, zmax = self.__bbox2_3D(mask)
-            return im[xmin:xmax+1,ymin:ymax+1,zmin:zmax+1].transpose((3, 0, 1, 2)).copy()
+            return im[xmin:xmax+1, ymin:ymax+1, zmin:zmax+1].transpose((3, 0, 1, 2)).copy()
 
-        return im.transpose((3, 0, 1, 2)).copy() # (H x W x D x C)--> (C x H x W x D), C-contiguous
+        # (H x W x D x C)--> (C x H x W x D), C-contiguous
+        return im.transpose((3, 0, 1, 2)).copy()
 
     def __getitem__(self, idx):
         if idx not in self.imagedata:
-            raise Exception('key %i not in imagedata (%i, %i)' % (idx, min(self.imagedata.keys()), max(self.imagedata.keys())))
+            raise Exception('key %i not in imagedata (%i, %i)' % (
+                idx, min(self.imagedata.keys()), max(self.imagedata.keys())))
 
         sample = self.imagedata[idx]
         sample['idx'] = idx
@@ -428,7 +447,6 @@ class SHPairedDataset4D(torch.utils.data.Dataset):
 def get_tra_val_loader(root_dir, metadata, transform=None, batch_size=2, split=True, paired=True, shuffle=False,
                        num_workers=4, val_ratio=0.2, pin_memory=False, cropped_to_mask=False,
                        import_functions=None, data_postproc=None):
-
     """function for loading and returning training and validation Dataloader
     :return:
         if split the data set then returns:
@@ -445,7 +463,8 @@ def get_tra_val_loader(root_dir, metadata, transform=None, batch_size=2, split=T
         :param worker_id:
         """
 
-        seed = (np.random.get_state()[1][0] + worker_id + torch.initial_seed()) % 4294967295  # unsigned 32bit integer
+        seed = (np.random.get_state()[
+                1][0] + worker_id + torch.initial_seed()) % 4294967295 # unsigned 32bit integer
         np.random.seed(seed)
         random.seed(seed)
 
@@ -469,9 +488,9 @@ def get_tra_val_loader(root_dir, metadata, transform=None, batch_size=2, split=T
                                                     data_postproc=data_postproc)
 
         train_loader = DataLoader(train_transformed_dataset, batch_size=batch_size, shuffle=shuffle,
-                                    num_workers=num_workers, pin_memory=pin_memory, worker_init_fn=worker_init_fn)
+                                  num_workers=num_workers, pin_memory=pin_memory, worker_init_fn=worker_init_fn)
         val_loader = DataLoader(val_transformed_dataset, batch_size=batch_size, shuffle=False,
-                                    num_workers=num_workers, pin_memory=pin_memory, worker_init_fn=worker_init_fn)
+                                num_workers=num_workers, pin_memory=pin_memory, worker_init_fn=worker_init_fn)
         return train_loader, val_loader
     else:
         train_transformed_dataset = SHPairedDataset4D(root_dir=root_dir,
