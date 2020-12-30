@@ -1,23 +1,24 @@
+FROM mrtrix3/mrtrix3@sha256:0de10cfddc4b5a99dc99e33cdf838c29f1cc73cf61622fafa9b355ea698493cd AS mrtrix301
+
 FROM nvidia/cuda:11.1-base-ubuntu18.04
-# FROM mrtrix3/mrtrix3
+
+LABEL MAINTAINER="Max Pietsch <maximilian.pietsch@kcl.ac.uk>"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         bzip2 \
-        clang \
         curl \
         ca-certificates \
-        git \
-        libeigen3-dev \
+        # git \
         libfftw3-dev \
-        libgl1-mesa-dev \
+        # libgl1-mesa-dev \
         libpng-dev \
-        libqt5opengl5-dev \
-        libqt5svg5-dev \
+        # libqt5opengl5-dev \
+        # libqt5svg5-dev \
         libtiff5-dev \
-        qt5-default \
-        sudo \
-        vim \
+        # qt5-default \
+        # sudo \
+        # vim \
         zlib1g-dev \
         && rm -rf /var/lib/apt/lists/*
 
@@ -26,7 +27,7 @@ SHELL [ "/bin/bash", "--login", "-c" ]
 
 
 # Create a non-root user
-ARG username=me
+ARG username=ds
 ARG uid=1000
 ARG gid=100
 ENV USER $username
@@ -60,17 +61,7 @@ ENV PATH=$CONDA_DIR/bin:$PATH
 RUN echo ". $CONDA_DIR/etc/profile.d/conda.sh" >> ~/.profile
 RUN conda init bash
 
-# install mrtrix3
-ARG MRTRIX3_GIT_COMMITISH="3.0.1"
-ARG MRTRIX3_CONFIGURE_FLAGS="-nogui"
-ARG MRTRIX3_BUILD_FLAGS=""
-# -persistent -nopaginate
-ARG MAKE_JOBS="12"
-WORKDIR $HOME/mrtrix3
-RUN git clone -b $MRTRIX3_GIT_COMMITISH --depth 1 https://github.com/MRtrix3/mrtrix3.git . \
-    && ./configure $MRTRIX3_CONFIGURE_FLAGS \
-    && NUMBER_OF_PROCESSORS=$MAKE_JOBS ./build $MRTRIX3_BUILD_FLAGS bin/mrconvert bin/mrinfo bin/mrcat bin/mrcalc \
-    && rm -rf tmp
+COPY --from=mrtrix301 /opt/mrtrix3 $HOME/mrtrix3
 
 # create project dir
 ENV PROJECT_DIR $HOME/dStripe
