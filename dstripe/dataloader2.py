@@ -5,8 +5,6 @@ import numpy as np
 from abc import ABCMeta
 import random
 import logging
-from multiprocessing import Process
-from multiprocessing import Queue as MPQueue
 
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
 from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
@@ -433,7 +431,8 @@ def mr_producer(queue, data_loader, transform, thread_id, seed):
             queue.put(item)
         queue.put("end")
 
-
+# from multiprocessing import Process
+# from multiprocessing import Queue as MPQueue
 # class MRMultiThreadedAugmenter(MultiThreadedAugmenter):
 # """ outdated, used for batchgen 91feb74747bfcfb9514d509fb13b854a37847b4d """
 #     @property

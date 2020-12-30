@@ -8,7 +8,6 @@ import pprint
 import random
 
 from utils.mif import load_mrtrix
-import sklearn
 from sklearn.model_selection import train_test_split
 
 

@@ -18,7 +18,7 @@ from scipy import signal
 import scipy.signal.windows
 import scipy.fftpack
 from scipy.fftpack import fft, fftshift, ifft, ifftshift
-from scipy.linalg import logm, expm
+from scipy.linalg import expm
 import scipy.ndimage
 
 import utils.mif

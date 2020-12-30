@@ -762,7 +762,7 @@ class ResBlock(nn.Module):
 
 
 class ResBlocks(nn.Module):
-    def __init__(self, num_blocks, dim, norm='in', activation='relu', pad_type='zero', res_n_conv=2, se_reduction=4):
+    def __init__(self, num_blocks, dim, norm='in', activation='relu', pad_type='zero', res_n_conv=2):
         super(ResBlocks, self).__init__()
         self.model = []
         for i in range(num_blocks):

@@ -10,37 +10,35 @@
 #   __________ Initialisation __________
 
 # Make the corresponding MRtrix3 Python libraries available
-import os, sys, socket, shutil, pprint, glob, subprocess, shlex, inspect # psutil
+import argparse
+from multiprocessing.pool import Pool
+from tqdm import tqdm
+from models.layers import MaskFill3D, WeightedSliceFilter, InplaneLowpassFilter3D
+import utils.mif
+import torch
+from scipy import fftpack
+import numpy as np
+import os
+import sys
+import socket
+import shutil
+import pprint
+import glob
+import subprocess
+import shlex
+import inspect  # psutil
 import multiprocessing
 import multiprocessing as mp
 if not sys.version_info >= (3, 5):
     raise Exception('requires python version >= 3.5')
 
 host = socket.gethostname()
-import numpy as np
-from scipy import fftpack
-import torch
-import utils.mif
-from models.layers import MaskFill3D, WeightedSliceFilter, InplaneLowpassFilter3D
-from tqdm import tqdm
 #   __________ Setup __________
-# HOME = os.path.expanduser('~') + '/'
-# os.environ['PATH'] = HOME+'/anaconda3/envs/py3ml3D/bin/:'+HOME+'/mrtrix3_mrreg_standalone/bin:'+os.environ['PATH']
-
-### setup mrtrix
-# p = subprocess.Popen(['which', 'mrinfo'], stdout=subprocess.PIPE)
-# line = p.stdout.readline().decode().strip()
-# lib_folder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(line)[0], os.pardir, 'lib')))
-# if not os.path.isdir(lib_folder):
-#     sys.stderr.write('Unable to locate MRtrix3 Python libraries in {} on (host:{})\n'.format(lib_folder, host))
-#     print('\n'.join(sys.path))
-#     sys.exit(1)
-# sys.path.insert(0, lib_folder)
-# from mrtrix3 import app, image, path, run, file
 
 
 def console(string):
     print(string)
+
 
 def exists(path):
     return os.path.exists(path)
@@ -61,6 +59,7 @@ def check_input(path, dir=False):
         return
     raise IOError(('file' if not dir else 'dir') + ' not found: ' + path)
 
+
 class LogExceptions(object):
     def __init__(self, callable):
         self.__callable = callable
@@ -75,10 +74,11 @@ class LogExceptions(object):
 
         return result
 
-from multiprocessing.pool import Pool
+
 class LoggingPool(Pool):
     def apply_async(self, func, args=(), kwds={}, callback=None):
         return Pool.apply_async(self, LogExceptions(func), args, kwds, callback)
+
 
 def butter2d_lp(size, cutoff, n=3):
     """2D Butterworth lowpass filter
@@ -91,7 +91,7 @@ def butter2d_lp(size, cutoff, n=3):
         raise ValueError('Cutoff frequency must be between 0 and 1.0')
 
     if not isinstance(n, int):
-        raise ValueError ('n must be an integer >= 1')
+        raise ValueError('n must be an integer >= 1')
 
     rows, cols = size
     assert rows > 0, size
@@ -106,29 +106,38 @@ def butter2d_lp(size, cutoff, n=3):
     distance = np.sqrt((y**2)[None] + (x**2)[:, None])
     return 1 / (1.0 + (distance / cutoff)**(2*n))
 
-import argparse
-parser = argparse.ArgumentParser(description='Field Frequency Sanitiser for DWI stripe correction')
 
-parser.add_argument('destriped',  help='amplitude data without stripes but with bias field OR destripe field (if -destriped_is_field)')
-parser.add_argument('reference',  help='amplitude data with stripes but without bias field')
+parser = argparse.ArgumentParser(
+    description='Field Frequency Sanitiser for DWI stripe correction')
+
+parser.add_argument(
+    'destriped',  help='amplitude data without stripes but with bias field OR destripe field (if -destriped_is_field)')
+parser.add_argument(
+    'reference',  help='amplitude data with stripes but without bias field')
 parser.add_argument('mask',  help='brain mask')
 parser.add_argument('output',  help='sanitised multiplicative field')
 parser.add_argument('-grad',  help='gradient table in MRtrix format')
 
 options = parser
-options.add_argument('-no_zclean', help='do not remove bias field: stop after Tikhonov regularised field estimation and inplane filter (for spred)', action='store_true')
-options.add_argument('-no_xyscrub', help='no inplane filter (for destriped_is_field and clean fields)', action='store_true')
-options.add_argument('-no_xyfilter', help='no inplane filter (for destriped_is_field and clean fields)', action='store_true')
+options.add_argument(
+    '-no_zclean', help='do not remove bias field: stop after Tikhonov regularised field estimation and inplane filter (for spred)', action='store_true')
+options.add_argument(
+    '-no_xyscrub', help='no inplane filter (for destriped_is_field and clean fields)', action='store_true')
+options.add_argument(
+    '-no_xyfilter', help='no inplane filter (for destriped_is_field and clean fields)', action='store_true')
 options.add_argument('-tikhonov_delta', help=' ', type=float, default=1e-4)
 options.add_argument('-destriped_is_field', help=' ', action='store_true')
-options.add_argument('-upsample_from', help='neural network layer extent before linear upsampling', type=int, default=16)
+options.add_argument(
+    '-upsample_from', help='neural network layer extent before linear upsampling', type=int, default=16)
 options.add_argument('-device', help='"cpu" or GPU number', default="cpu")
-options.add_argument('-no_fft', help='Convolution instead of FFT filtering. Worse performance and memory footprint.', action='store_true')
+options.add_argument(
+    '-no_fft', help='Convolution instead of FFT filtering. Worse performance and memory footprint.', action='store_true')
 options.add_argument('-nthreads', help='nthreads', type=int)
 options.add_argument('-force', help='force', action='store_true')
 options.add_argument('-debug', help='debug', action='store_true')
 
 global force
+
 
 def write_output(IM, Output, location, stride_reference=None, **kwargs):
     global force
@@ -231,10 +240,11 @@ if __name__ == '__main__':
         app.warn("destripe is ones")
     slices, vols = D.shape[2:4]
     if debug:
-        console('%i slices, %i volumes' %(slices, vols))
+        console('%i slices, %i volumes' % (slices, vols))
 
     mask = np.squeeze(utils.mif.load_mrtrix(args.mask).data) > 0.5
-    assert len(mask.shape) == 3 and np.all(D.shape[:3] == mask.shape), (D.shape, mask.shape)
+    assert len(mask.shape) == 3 and np.all(
+        D.shape[:3] == mask.shape), (D.shape, mask.shape)
     if mask.sum() == 0:
         raise RuntimeError("mask is empty")
 
@@ -276,15 +286,18 @@ if __name__ == '__main__':
             high_intensity = d_high_intensity[bvalues[ii]]
             assert high_intensity > 0, high_intensity
             assert tikhonov_delta > 0, tikhonov_delta
-            intensity_cutoff = max(1e-6, 10.0 * tikhonov_delta * high_intensity)
+            intensity_cutoff = max(
+                1e-6, 10.0 * tikhonov_delta * high_intensity)
 
             # ||s * x - d||^2 + || \delta * x  - \delta ||^2
             # x = \frac{s * d + \delta^2}{s^2 + \delta^2}
             d = (tikhonov_delta * high_intensity) ** 2
             assert d > 0, d
-            ft = ((source * destriped + d) / (source ** 2 + d)).astype(np.float32)
+            ft = ((source * destriped + d) /
+                  (source ** 2 + d)).astype(np.float32)
 
-            outside = np.logical_or(source <= intensity_cutoff, destriped <= intensity_cutoff)
+            outside = np.logical_or(
+                source <= intensity_cutoff, destriped <= intensity_cutoff)
             ft[outside] = -1
             if (ft[~outside] <= 0).any():
                 success = False
@@ -306,7 +319,8 @@ if __name__ == '__main__':
                 multiprocessing.log_to_stderr()
                 pool = LoggingPool(nthreads)
                 for vol in range(vols):
-                    pool.apply_async(field_fit_worker, args=(vol, tikhonov_delta, ), callback=write_result)
+                    pool.apply_async(field_fit_worker, args=(
+                        vol, tikhonov_delta, ), callback=write_result)
             finally:
                 pool.close()
                 pool.join()
@@ -319,7 +333,8 @@ if __name__ == '__main__':
             raise RuntimeError("Output contains zeros")
 
         if debug:
-            write_output(IM, Output, args.output + '_ft0.mif', stride_reference=None, force=True)
+            write_output(IM, Output, args.output + '_ft0.mif',
+                         stride_reference=None, force=True)
 
     # __________________________________ interpolate / extrapolate field in untrusted / low intensity regions
     if not args.no_xyscrub:
@@ -328,24 +343,29 @@ if __name__ == '__main__':
 
         # iterate over slices so that each volume gets the same number of iterations irrespective of intensity
 
-        progress = tqdm(total=slices, desc="sanitising multiplicative field", leave=True)
+        progress = tqdm(
+            total=slices, desc="sanitising multiplicative field", leave=True)
         for sl in range(slices):
             progress.update()
             if debug:
                 console('slice %i' % sl)
             chunk = Output[..., sl, :]  # x, y, v
             with torch.no_grad():
-                Inside = torch.from_numpy((chunk != -1).astype(np.float32)).reshape(1, 1, *chunk.shape[:3]).contiguous().to(device)
+                Inside = torch.from_numpy(
+                    (chunk != -1).astype(np.float32)).reshape(1, 1, *chunk.shape[:3]).contiguous().to(device)
                 for _vol, _inside in enumerate(Inside.view(-1, vols).sum(0)):
                     if _inside == 0:  # don't trust anything, fill all with 1s
-                        app.warn('slice %i, volume %i has no valid field data' % (sl, _vol))
+                        app.warn(
+                            'slice %i, volume %i has no valid field data' % (sl, _vol))
                         Inside.view(-1, vols)[:, _vol] = 1.0
                         chunk[..., _vol] = 0
                     continue
 
                 # slice-level brain mask
-                BM = torch.from_numpy(mask[..., sl].astype(np.float32, copy=True))
-                BM = BM.reshape(*mask.shape[:2], 1).expand(1, 1, -1, -1, vols).contiguous().to(device)
+                BM = torch.from_numpy(
+                    mask[..., sl].astype(np.float32, copy=True))
+                BM = BM.reshape(
+                    *mask.shape[:2], 1).expand(1, 1, -1, -1, vols).contiguous().to(device)
                 mask_mean = mask[..., sl].mean()
                 # slice-level log field
                 chunk[chunk == -1] = 1.0
@@ -357,7 +377,8 @@ if __name__ == '__main__':
                     raise RuntimeError("chunk contains -1 ")
                 if (chunk < 0).any():
                     raise RuntimeError("chunk contains negative values")
-                X = torch.log(torch.from_numpy(chunk.astype(np.float32, copy=True)).reshape(1, 1, *chunk.shape[:3])).to(device)
+                X = torch.log(torch.from_numpy(chunk.astype(np.float32, copy=True)).reshape(
+                    1, 1, *chunk.shape[:3])).to(device)
 
                 # fill at least 5 times or until brain mask has no non-inside voxels
                 pc = MaskFill3D(in_channels=1, out_channels=1,
@@ -371,7 +392,8 @@ if __name__ == '__main__':
                         break
                     it += 1
                     if it > 4 and (mask_slice_means[sl] == 0 or torch.abs(torch.mul(Inside, BM).mean() - mask_mean) < 0.5 / np.product(BM.shape)):
-                        console("converged at iteration %i (brain mask filled in) %g" % (it, torch.mul(Inside, BM).mean() - mask_mean))
+                        console("converged at iteration %i (brain mask filled in) %g" % (
+                            it, torch.mul(Inside, BM).mean() - mask_mean))
                         break
                     X, Inside = pc(X, Inside, return_mask=True)
                 X = X.cpu().numpy()
@@ -380,7 +402,8 @@ if __name__ == '__main__':
                     raise RuntimeError("Output slice %i non-positive" % sl)
 
         if debug:
-            write_output(IM, Output, args.output + '_ft1.mif', stride_reference=None, force=True)
+            write_output(IM, Output, args.output + '_ft1.mif',
+                         stride_reference=None, force=True)
 
     if not args.no_xyfilter:
         # __________________________________ remove upsampling and extrapolation artefacts
@@ -399,7 +422,8 @@ if __name__ == '__main__':
                 return im
 
             Output = Output.reshape(*Output.shape[:2], slices * vols)
-            bw2 = fftpack.ifftshift(butter2d_lp((Output.shape[0]+2*pad_fft, Output.shape[1]+2*pad_fft), cutoff_frequency))
+            bw2 = fftpack.ifftshift(butter2d_lp(
+                (Output.shape[0]+2*pad_fft, Output.shape[1]+2*pad_fft), cutoff_frequency))
 
             def fft_worker(ii):
                 im = np.pad(Output[..., ii].copy(), pad_fft, mode='reflect')
@@ -412,12 +436,14 @@ if __name__ == '__main__':
                 def write_result(result):
                     global Output
                     ii, result = result
-                    Output[..., ii] = result  # Output modified only by the main process
+                    # Output modified only by the main process
+                    Output[..., ii] = result
 
                 try:
                     pool = mp.Pool()
                     for i in range(Output.shape[-1]):
-                        pool.apply_async(fft_worker, args=(i,), callback=write_result)
+                        pool.apply_async(fft_worker, args=(
+                            i,), callback=write_result)
                 finally:
                     pool.close()
                     pool.join()
@@ -432,11 +458,13 @@ if __name__ == '__main__':
             ipfilter = InplaneLowpassFilter3D(channels=1, param=cutoff_frequency, kernel_size=kernel_size, mode="reflect",
                                               filter_type="sinc").float().to(device)
             for vol in range(vols):
-                X = torch.from_numpy(Output[..., vol].astype(np.float32, copy=False)).unsqueeze(0).unsqueeze(0).to(device)
+                X = torch.from_numpy(Output[..., vol].astype(
+                    np.float32, copy=False)).unsqueeze(0).unsqueeze(0).to(device)
                 with torch.no_grad():
                     Output[..., vol] = np.squeeze(ipfilter(X).cpu().numpy())
         if debug:
-            write_output(IM, Output, args.output + '_ft2.mif', stride_reference=None, force=True)
+            write_output(IM, Output, args.output + '_ft2.mif',
+                         stride_reference=None, force=True)
 
     if (Output <= 0).any():
         raise RuntimeError("Output non-positive")
@@ -447,7 +475,8 @@ if __name__ == '__main__':
         console("filtering out bias field")
         # refine mask based on mean intensity in lowest shell
         global m1
-        m1 = np.logical_and(mask, R[..., bvalues == min(bs)].mean(-1) > 0.5 * d_high_intensity[min(bs)]).astype(np.float32)
+        m1 = np.logical_and(mask, R[..., bvalues == min(
+            bs)].mean(-1) > 0.5 * d_high_intensity[min(bs)]).astype(np.float32)
         if m1.sum() < 1:
             raise RuntimeError("m1 empty")
         eps = 0.5
@@ -491,7 +520,8 @@ if __name__ == '__main__':
         ip_filter = InplaneLowpassFilter3D(channels=1, param=6, kernel_size=31,
                                            mode="reflect", filter_type="gaussian").float().to(device)
         # mask is prior (weight: [eps, 1])
-        m1 = ip_filter(torch.from_numpy((1.0 - eps) * m1).view(1, 1, *mask.shape).contiguous().to(device)).cpu().numpy()
+        m1 = ip_filter(torch.from_numpy((1.0 - eps) * m1).view(1,
+                                                               1, *mask.shape).contiguous().to(device)).cpu().numpy()
         m1 = np.squeeze(m1).reshape(-1, slices)
 
         def fft_worker2(ii, eps, edge_feather, slices):
@@ -503,7 +533,8 @@ if __name__ == '__main__':
                 im_shape = Output.shape[:-1]
                 if edge_feather:
                     I[..., :edge_feather] *= np.linspace(0, 1., edge_feather)
-                    I[..., -edge_feather:] *= np.linspace(0, 1., edge_feather)[::-1]
+                    I[..., -
+                        edge_feather:] *= np.linspace(0, 1., edge_feather)[::-1]
 
                 I *= eps + m1
                 if p > 0:
@@ -536,7 +567,9 @@ if __name__ == '__main__':
             try:
                 pool = Pool()
                 for ii in range(vols):
-                    pool.apply_async(fft_worker2, args=(ii, eps, edge_feather, slices, ), callback=write_result2)
+                    pool.apply_async(fft_worker2, 
+                                     args=(ii, eps, edge_feather, slices, ), 
+                                     callback=write_result2)
             finally:
                 pool.close()
                 pool.join()
@@ -545,62 +578,4 @@ if __name__ == '__main__':
         if not success:
             raise RuntimeError("oops2")
 
-    write_output(IM, Output, args.output) #, stride_reference=args.destriped)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    write_output(IM, Output, args.output)  # , stride_reference=args.destriped)
