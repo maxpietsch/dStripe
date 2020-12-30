@@ -17,7 +17,7 @@ from functools import partial
 
 from dataloader import Compose
 # from torchvision.transforms import Compose
-from metrics import *
+# from metrics import *
 # from trainer import save_checkpoint
 # from models.mresnet import ContextEncoder, Decoder, SELayer3D, ConvBlock
 
