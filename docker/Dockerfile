@@ -34,6 +34,7 @@ ENV USER $username
 ENV UID $uid
 ENV GID $gid
 ENV HOME /home/$USER
+RUN groupadd -g ${GID} dstripers
 RUN adduser --disabled-password \
     --gecos "Non-root user" \
     --uid $UID \
@@ -68,7 +69,7 @@ ENV PROJECT_DIR $HOME/dStripe
 RUN mkdir $PROJECT_DIR
 WORKDIR $PROJECT_DIR
 
-COPY --chown=$UID:$GID ../. $PROJECT_DIR/
+COPY --chown=$UID:$GID . $PROJECT_DIR/
 RUN ln -s $HOME/mrtrix3/build $PROJECT_DIR/build
 RUN ln -s $HOME/mrtrix3/bin/mrtrix3.py $PROJECT_DIR/bin/mrtrix3.py
 

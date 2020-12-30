@@ -8,16 +8,15 @@ IMAGE_TAG=0.1
 ## build docker image (make sure you have sufficient RAM )
 
 ```
-cd docker
 [ -z "$UID" ] && UID=$(id -u)
 [ -z "$GID" ] && GID=$(id -g)
 docker image build \
   --build-arg username=$USER \
   --build-arg uid=$UID \
   --build-arg gid=$GID \
-  --file Dockerfile \
+  --file docker/Dockerfile \
   --tag $IMAGE_NAME:$IMAGE_TAG \
-  ../
+  .
 ```
 
 You might need to increase Docker's runtime memory ([macOS](https://docs.docker.com/docker-for-mac/#memory), [windows](https://docs.docker.com/docker-for-windows/#advanced)).
