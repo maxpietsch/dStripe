@@ -9,7 +9,7 @@ RUN apt-get update && \
         bzip2 \
         curl \
         ca-certificates \
-        # git \
+        git \
         libfftw3-dev \
         # libgl1-mesa-dev \
         libpng-dev \
