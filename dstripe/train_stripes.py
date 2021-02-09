@@ -438,7 +438,7 @@ class DeStripeNetwork(NetworkTrainer):
             ####
             pert = Variable(torch.tensor(self.sure_perturbation(source=S.numpy().copy())['source']).double())
             # sure_perturbation_scale = self.sure_perturbation_scale
-            sure_perturbation_scale = 1. / (np.squeeze(pert[M > 0.5].numpy()) - np.squeeze(S[M > 0.5])).std()
+            sure_perturbation_scale = 1. / (np.squeeze(pert[M > 0.5].numpy()) - np.squeeze(S[M > 0.5].numpy())).std()
 
             # plots([np.squeeze(sample['source'].numpy())[45], np.squeeze(sample['target'].cpu().numpy())[45],
             #        np.squeeze(pert.numpy())[45]])
@@ -540,7 +540,7 @@ class DeStripeNetwork(NetworkTrainer):
                 for _ in range(start):
                     x = next(xs)
                 yield x
-                for _ in range(step):
+                for _ in range(step-1):
                     next(xs)
         images = {'S': [], 'T': [], 'output': [], 'M': []}
         with torch.no_grad():
