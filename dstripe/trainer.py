@@ -44,7 +44,7 @@ class NetworkTrainer(object):
         self.data_postproc= None
         self.num_workers = 2
         self.num_cached_per_queue = 2
-        self.pin_memory = False
+        self.pin_memory = True
 
         self.quiet = quiet
 
@@ -178,13 +178,15 @@ class NetworkTrainer(object):
                               number_of_threads=self.num_workers,
                               shuffle=shuffle,
                               memmap=self.p.dict.get('memmap', False))
-
-            self.__dict__[short + '_loader'] = MRMultiThreadedAugmenter(loader,
-                                                                        transform=transform,
-                                                                        num_processes=self.num_workers,
-                                                                        num_cached_per_queue=self.num_cached_per_queue,
-                                                                        seeds=[random.randint(0, 4294967295) for _ in
-                                                                               range(self.num_workers)])  # random seed
+            kwargs = {'pin_memory':self.pin_memory, 
+                      'transform':transform,
+                      'num_processes':self.num_workers,
+                      'num_cached_per_queue':self.num_cached_per_queue,
+                      'seeds':[random.randint(0, 4294967295) for _ in range(self.num_workers)]}
+            print(short + '_loader:')
+            import pprint
+            pprint.pprint(kwargs)
+            self.__dict__[short + '_loader'] = MRMultiThreadedAugmenter(loader, **kwargs)
         else:
             assert 0, version
 
@@ -281,7 +283,7 @@ class NetworkTrainer(object):
                 print('scale_offset', self.__dict__[loader].dataset.normalise.scale_offset)
 
         if normalise is None:
-            if not self.p.dict['memmap']:
+            if not self.p.dict.get('memmap', False):
                 report_image_stats(loader='train_loader')
                 report_image_stats(loader='val_loader')
                 report_image_stats(loader='test_loader')
