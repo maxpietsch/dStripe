@@ -40,6 +40,7 @@ def usage(cmdline):
     cmdline.add_argument('-corrected', help='The corrected DWI image series')
     model_options = cmdline.add_argument_group('Model options')
     model_options.add_argument('-model', help='json defining model parameters, default: '+MODEL, default=MODEL)
+    model_options.add_argument('-checkpoint', help='load specific model checkpoint')
     model_options.add_argument('-device', help='device: "cpu" or comma separated GPU number, default: ' + DEVICE, default=DEVICE)
     model_options.add_argument('-batch_size', help='batch_size, default: {}'.format(BATCH_SIZE), type=int, default=BATCH_SIZE)
     model_options.add_argument('-butterworth_samples_cutoff', help='BW filter cutoff frequency, default: {}'.format(BUTTERWORTH_SAMPLES_CUTOFF),
@@ -89,8 +90,8 @@ def destripe():
     ]
 
     cmd += ["--device=" + app.ARGS.device]
-    # if app.ARGS.checkpoint:
-    #     cmd += ["--checkpoint", app.ARGS.checkpoint]
+    if app.ARGS.checkpoint:
+         cmd += ["--checkpoint", app.ARGS.checkpoint]
     destripe_job(cmd)
 
 
