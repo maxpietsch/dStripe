@@ -1,3 +1,4 @@
+models/*
 *.o
 *_moc.cpp
 *.so
