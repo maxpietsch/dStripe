@@ -1,4 +1,6 @@
-# dStripe
+![](graphical_abstract.png)
+
+# dStripe: slice artefact correction in diffusion MRI
 
 This repository contains code and model weights for the method described in the paper
 "**dStripe: slice artefact correction in diffusion MRI via constrained neural network**" by
@@ -13,14 +15,14 @@ This repository is set up as a module to [MRtrix3](https://www.mrtrix.org/) and 
 
 # Usage for anatomical-space inference
 
-For ease of use, we recommend using Docker as outlined below. dStripe supports CPU-only and single and multi-GPU usage. In the below examples, input and output data are located in `~/data` and mapped to `/data` inside the Docker container. This can be adjusted by modifying the command line option `--volume ~/data/:/data`.
+For ease of use, we recommend using Docker as outlined below. dStripe supports CPU-only and single and multi-GPU usage. In the usage examples, input and output data are located in `~/data` and mapped to `/data` inside the Docker container. This can be adjusted by modifying the command line option `--volume ~/data/:/data`.
 
 ```bash
 IMAGE_NAME=dstripe
 IMAGE_TAG=0.1
 ```
 
-## build docker image (make sure you have sufficient RAM )
+## build docker image 
 
 ```bash
 [ -z "$UID" ] && UID=$(id -u)
@@ -34,7 +36,7 @@ docker image build \
   .
 ```
 
-You might need to increase Docker's runtime memory ([macOS](https://docs.docker.com/docker-for-mac/#memory), [windows](https://docs.docker.com/docker-for-windows/#advanced)).
+Make sure you have sufficient RAM! You might need to increase Docker's runtime memory ([macOS](https://docs.docker.com/docker-for-mac/#memory), [windows](https://docs.docker.com/docker-for-windows/#advanced)).
 
 ## show dwidestripe usage
 
