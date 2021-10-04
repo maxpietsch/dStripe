@@ -32,6 +32,8 @@ mrffs = [sys.executable, os.path.join(DSTRIPE_DIR, 'dstripe', 'mrffs.py')]
 def usage(cmdline):
     from mrtrix3 import app
     cmdline.set_author('Max Pietsch (maximilian.pietsch@kcl.ac.uk)')
+    cmdline.add_citation('Maximilian Pietsch, Daan Christiaens, Joseph V Hajnal, J-Donald Tournier, dStripe: slice artefact correction in diffusion MRI '
+                         'via constrained neural network Medical Image Analysis, 2021, 102255')
     cmdline.set_synopsis('Correct slice modulation artefacts in a DWI series image')
     cmdline.add_description('part of dStripe. output: multiplicative modulation field')
     cmdline.add_argument('input', help='The input diffusion MRI series')
@@ -159,7 +161,7 @@ def execute():  # pylint: disable=unused-variable
                 mrconvert_keyval=path.from_user(app.ARGS.input, False), force=app.FORCE_OVERWRITE)
 
     if app.ARGS.corrected:
-        run.command('mrcalc nn/amp.mif amp_field.mif -mult - | ' 
+        run.command('mrcalc nn/amp.mif amp_field.mif -mult - | '
                     'mrconvert - -grad grad -set_property comments "" -datatype float32 ' + path.from_user(app.ARGS.corrected),
                     mrconvert_keyval=path.from_user(app.ARGS.input, False), force=app.FORCE_OVERWRITE)
 
