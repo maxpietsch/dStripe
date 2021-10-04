@@ -17,16 +17,16 @@ This repository is set up as a module to [MRtrix3](https://www.mrtrix.org/) and 
 
 For ease of use, we recommend using Docker as outlined below. dStripe supports CPU-only and single and multi-GPU usage. In the usage examples, input and output data are located in `~/data` and mapped to `/data` inside the Docker container. This can be adjusted by modifying the command line option `--volume ~/data/:/data`.
 
-## get build image
+## download or build image
 
-### get it from dockerhub 
+### either pull from dockerhub 
 
 
 ```bash
 docker pull maxpietsch/dstripe:0.1
 ```
 
-If you use the dockerhub image, please replace `dstripe` in the docker command line examples wih the `maxpietsch/dstripe:0.1`.
+If you use the dockerhub image, please replace `dstripe` in the docker command line examples wih the full image name (`maxpietsch/dstripe:0.1`).
 
 
 ### or build your own docker image 
@@ -52,7 +52,7 @@ Make sure you have sufficient RAM! You might need to increase Docker's runtime m
 
 ## show dwidestripe usage
 
-The main command for inference is `dwidestripe`. To show its usage simply run it without arguments:
+The main command for inference is `dwidestripe`. The most basic usage is `dwidestripe dwi.mif field.mif`. To show all options simply run it without arguments:
 
 ```bash
 docker run --rm dstripe dwidestripe
