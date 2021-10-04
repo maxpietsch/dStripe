@@ -17,19 +17,19 @@ This repository is set up as a module to [MRtrix3](https://www.mrtrix.org/) and 
 
 For ease of use, we recommend using Docker as outlined below. dStripe supports CPU-only and single and multi-GPU usage. In the usage examples, input and output data are located in `~/data` and mapped to `/data` inside the Docker container. This can be adjusted by modifying the command line option `--volume ~/data/:/data`.
 
-## get build image
+## download or build image
 
-### get it from dockerhub 
+### either pull from dockerhub 
 
 
 ```bash
 docker pull maxpietsch/dstripe:0.1
 ```
 
-If you use the dockerhub image, please replace `dstripe` in the docker command line examples wih the `maxpietsch/dstripe:0.1`.
+If you use the dockerhub image, please replace `dstripe` in the docker command line examples wih the full image name (`maxpietsch/dstripe:0.1`).
 
 
-### of build your own docker image 
+### or build your own docker image 
 
 ```bash
 git clone git@github.com:maxpietsch/dStripe.git dStripe
@@ -52,7 +52,7 @@ Make sure you have sufficient RAM! You might need to increase Docker's runtime m
 
 ## show dwidestripe usage
 
-The main command for inference is `dwidestripe`. To show its usage simply run it without arguments:
+The main command for inference is `dwidestripe`. The most basic usage is `dwidestripe dwi.mif field.mif`. To show all options simply run it without arguments:
 
 ```bash
 docker run --rm dstripe dwidestripe
@@ -204,10 +204,12 @@ docker run --rm --volume ~/data/:/data dstripe \
 
 ## dwidestripe ~/data/dwi.mif on the GPU
 
-For [GPU support](https://docs.docker.com/config/containers/resource_constraints/) add `--gpus` and replace `-device cpu` with for instance `-device 0,1` for using the first two CUDA-capable GPUs.
+This should be much faster but requires the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). Make sure `docker run --rm --gpus all nvidia/cuda:11.0-base nvidia-smi` shows your GPUs before proceeding.
+  
+For [GPU support](https://docs.docker.com/config/containers/resource_constraints/) add `--gpus all` and replace `-device cpu` with for instance `-device 0,1` for using the first two CUDA-capable GPUs listed by `nvidia-smi`.
 
 ```bash
-docker run --rm --volume ~/data/:/data --gpus dstripe \
+docker run --rm --volume ~/data/:/data --gpus all dstripe \
   dwidestripe /data/dwi.mif /data/mask.mif /data/dstripe_field.mif -device 0,1
 ```
 
