@@ -3,7 +3,7 @@
 # docker system prune
 set -x
 
-IMAGE_NAME=dstripe
+IMAGE_NAME=maxpietsch/dstripe
 IMAGE_TAG=0.1
 
 [ -z "$UID" ] && UID=$(id -u)
@@ -19,3 +19,7 @@ docker image build \
   --file docker/Dockerfile \
   --tag $IMAGE_NAME:$IMAGE_TAG \
   .
+
+
+docker push $IMAGE_NAME:$IMAGE_TAG
+
