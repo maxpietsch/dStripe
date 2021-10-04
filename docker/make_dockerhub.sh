@@ -8,7 +8,6 @@ IMAGE_TAG=0.1
 
 cd ../
 docker image build \
-  --build-arg username=$USER \
   --file docker/Dockerfile \
   --tag $IMAGE_NAME:$IMAGE_TAG \
   .
