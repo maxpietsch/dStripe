@@ -31,7 +31,7 @@ RUN apt-get update && \
 COPY environment.yml /tmp/
 
 COPY docker/entrypoint.sh /usr/local/bin/
-RUN chmod u+x /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 USER $USER
 
