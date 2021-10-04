@@ -212,6 +212,15 @@ docker run --rm --volume ~/data/:/data --gpus all dstripe \
 docker run --rm --volume ~/data/:/data dstripe \
   mrcalc /data/dwi.mif /data/dstripe_field.mif -mult /data/dwi_destriped.mif
 ```
+  
+## use dStripe in singularity
+
+Conversion of the docker image to singularity currently fails, presumably due to lack of access to `/root` and incomplete shell initialisation. Pull requests or hints are welcome!
+  
+```bash
+sudo singularity build dstripe.sif docker://maxpietsch/dstripe:1.0
+singularity run -e -B ~/data:/data dstripe.sif dwidestripe /data/dwi.mif /data/mask.mif /data/dstripe_field.mif -device cpu
+```
 
 ## acknowledgement
 
