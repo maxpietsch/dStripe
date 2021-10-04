@@ -4,6 +4,9 @@ FROM nvidia/cuda:11.1-base-ubuntu18.04
 
 LABEL MAINTAINER="Max Pietsch <maximilian.pietsch@kcl.ac.uk>"
 
+# fix "mesg: ttyname failed: Inappropriate ioctl for device" warning
+RUN cp /etc/profile /root/.profile
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         bzip2 \
