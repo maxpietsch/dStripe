@@ -11,7 +11,7 @@ Abstract: MRI scanner and sequence imperfections and advances in reconstruction 
 
 Keywords: diffusion MRI; image artefact removal; venetian blind artefact
 
-This repository is set up as a module to [MRtrix3](https://www.mrtrix.org/) and uses pytorch and a number of other python packages (see [environment.yml](environment.yml)).
+This repository is set up as a module to [MRtrix3](https://www.mrtrix.org/) and uses pytorch (tested with 0.4.1) and a number of other python packages (see [environment.yml](environment.yml)).
 
 # Usage for anatomical-space inference
 
@@ -23,10 +23,10 @@ For ease of use, we recommend using Docker as outlined below. dStripe supports C
 
 
 ```bash
-docker pull maxpietsch/dstripe:0.1
+docker pull maxpietsch/dstripe
 ```
 
-If you use the dockerhub image, please replace `dstripe` in the docker command line examples wih the full image name (`maxpietsch/dstripe:0.1`).
+If you use the dockerhub image, replace `dstripe` in the docker command line examples wih the full image name (`maxpietsch/dstripe`).
 
 
 ### or build your own docker image 
@@ -35,14 +35,7 @@ If you use the dockerhub image, please replace `dstripe` in the docker command l
 git clone git@github.com:maxpietsch/dStripe.git dStripe
 cd dStripe
 
-[ -z "$UID" ] && UID=$(id -u)
-[ -z "$GID" ] && GID=$(id -g)
-OSTYPE=$(uname)
 docker image build \
-  --build-arg username=$USER \
-  --build-arg uid=$UID \
-  --build-arg gid=$GID \
-  --build-arg ostype=$OSTYPE \
   --file docker/Dockerfile \
   --tag dstripe \
   .
