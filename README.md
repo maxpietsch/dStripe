@@ -29,7 +29,7 @@ docker pull maxpietsch/dstripe:0.1
 If you use the dockerhub image, please replace `dstripe` in the docker command line examples wih the `maxpietsch/dstripe:0.1`.
 
 
-### of build your own docker image 
+### or build your own docker image 
 
 ```bash
 git clone git@github.com:maxpietsch/dStripe.git dStripe
@@ -204,10 +204,12 @@ docker run --rm --volume ~/data/:/data dstripe \
 
 ## dwidestripe ~/data/dwi.mif on the GPU
 
-For [GPU support](https://docs.docker.com/config/containers/resource_constraints/) add `--gpus` and replace `-device cpu` with for instance `-device 0,1` for using the first two CUDA-capable GPUs.
+This should be much faster but requires the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). Make sure `docker run --rm --gpus all nvidia/cuda:11.0-base nvidia-smi` shows your GPUs before proceeding.
+  
+For [GPU support](https://docs.docker.com/config/containers/resource_constraints/) add `--gpus all` and replace `-device cpu` with for instance `-device 0,1` for using the first two CUDA-capable GPUs listed by `nvidia-smi`.
 
 ```bash
-docker run --rm --volume ~/data/:/data --gpus dstripe \
+docker run --rm --volume ~/data/:/data --gpus all dstripe \
   dwidestripe /data/dwi.mif /data/mask.mif /data/dstripe_field.mif -device 0,1
 ```
 
