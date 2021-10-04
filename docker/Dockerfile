@@ -27,6 +27,7 @@ SHELL [ "/bin/bash", "--login", "-c" ]
 
 
 # Create a non-root user
+ARG ostype=Linux
 ARG username=ds
 ARG uid=1000
 ARG gid=100
@@ -34,7 +35,8 @@ ENV USER $username
 ENV UID $uid
 ENV GID $gid
 ENV HOME /home/$USER
-RUN groupadd -g ${GID} dstripers
+RUN bash -c 'if [ ${ostype} == Linux ]; then groupadd -g ${GID} dstripers; fi'
+# RUN groupadd -g ${GID} dstripers
 RUN adduser --disabled-password \
     --gecos "Non-root user" \
     --uid $UID \
