@@ -438,7 +438,7 @@ class DeStripeNetwork(NetworkTrainer):
             ####
             pert = Variable(torch.tensor(self.sure_perturbation(source=S.numpy().copy())['source']).double())
             # sure_perturbation_scale = self.sure_perturbation_scale
-            sure_perturbation_scale = 1. / (np.squeeze(pert[M > 0.5].numpy()) - np.squeeze(S[M > 0.5])).std()
+            sure_perturbation_scale = 1. / (np.squeeze(pert[M > 0.5].numpy()) - np.squeeze(S[M > 0.5].numpy())).std()
 
             # plots([np.squeeze(sample['source'].numpy())[45], np.squeeze(sample['target'].cpu().numpy())[45],
             #        np.squeeze(pert.numpy())[45]])
@@ -540,7 +540,7 @@ class DeStripeNetwork(NetworkTrainer):
                 for _ in range(start):
                     x = next(xs)
                 yield x
-                for _ in range(step):
+                for _ in range(step-1):
                     next(xs)
         images = {'S': [], 'T': [], 'output': [], 'M': []}
         with torch.no_grad():
@@ -1201,6 +1201,37 @@ if __name__ == '__main__':
                                                        centre_variance=(0.9, 1.1),
                                                        noise_variance=(0.05, 0.05),
                                                        block_slope_range=(0., 0.3), power=2)
+    elif data_settings == 40.201:  # MSE: IS,LR,AP balanced orientations, eval on all, power=2
+        #  source == target
+        from augmentation2 import *
+
+        settings = {
+            'transforms_val': Compose([RndChoiceTransform(AxialSliceDir(modes=('AP', 'LR')), identity_transform=True),
+                                       RandomDihedralSliceDirPreserving(),
+                                       GeneralStripeTransform(interleave=3, block_size=0,
+                                                              centre_variance=(0.9, 1.1),
+                                                              noise_variance=(0.05, 0.05),
+                                                              block_slope_range=(0., 0.3), power=2),
+                                       SampleToTensor4D()]),
+            'transforms_train': Compose(
+                [RndChoiceTransform(AxialSliceDir(modes=('AP')),
+                                    AxialSliceDir(modes=('LR')),
+                                    identity_transform=True),
+                 RandomDihedralSliceDirPreserving(),
+                 GeneralStripeTransform(interleave=3, block_size=0,
+                                        centre_variance=(0.9, 1.1),
+                                        noise_variance=(0.05, 0.05),
+                                        block_slope_range=(0., 0.3), power=2),
+                 SampleToTensor4D()]),
+            "normalise": "percentile-scale"}
+        Net.import_functions = {'source': get_n_bbalanced, 'target': get_n_bbalanced}
+        Net.data_postproc = split_by_vol
+
+        Net.do_sure = False
+        Net.sure_perturbation = GeneralStripeTransform(interleave=3, block_size=0,
+                                                       centre_variance=(0.9, 1.1),
+                                                       noise_variance=(0.05, 0.05),
+                                                       block_slope_range=(0., 0.3), power=2)
     elif data_settings == 40.21:  # for dHCP SHARD recon04 with SURE: IS; MSE: LR,AP balanced orientations, eval on all, power=2
         #  source == target
         from augmentation2 import *
@@ -1258,7 +1289,7 @@ if __name__ == '__main__':
             "normalise": None}
         Net.import_functions = {'source': get_one_bbalanced}
         Net.data_postproc = VolumeLoader(normalise=normalise_fun)
-
+        # Net.data_postproc = split_by_vol
         Net.do_sure = False
         Net.sure_perturbation = GeneralStripeTransform(interleave=3, block_size=0,
                                                        centre_variance=(0.9, 1.1),
