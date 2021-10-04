@@ -1,21 +1,21 @@
+#!/bin/bash
+# docker rmi $(docker images -qa -f 'dangling=true')
+# docker system prune
+set -x
+
 IMAGE_NAME=dstripe
 IMAGE_TAG=0.1
-set -x
+
+[ -z "$UID" ] && UID=$(id -u)
+[ -z "$GID" ] && GID=$(id -g)
+OSTYPE=$(uname)
+
+cd ../
 docker image build \
   --build-arg username=$USER \
-  --build-arg uid=$(id -u) \
-  --build-arg gid=$(id -g) \
-  --file Dockerfile \
+  --build-arg uid=$UID \
+  --build-arg gid=$GID \
+  --build-arg ostype=$OSTYPE \
+  --file docker/Dockerfile \
   --tag $IMAGE_NAME:$IMAGE_TAG \
-  ../
-
-
-
-# cd ~/dStripe
-# IMAGE_NAME=dstripe
-# IMAGE_TAG=0.1
-# docker container run \
-#   --rm \
-#   --volume /tmp:/home/$USER/data \
-#   $IMAGE_NAME:$IMAGE_TAG \
-#   dwidestripe
+  .
