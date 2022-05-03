@@ -23,10 +23,10 @@ For ease of use, we recommend using Docker as outlined below. dStripe supports C
 
 
 ```bash
-docker pull maxpietsch/dstripe
+docker pull maxpietsch/dstripe:1.0
 ```
 
-If you use the dockerhub image, replace `dstripe` in the docker command line examples wih the full image name (`maxpietsch/dstripe`).
+**Note: If you use the dockerhub image, replace `dstripe` in the docker command line examples wih the full image name (`maxpietsch/dstripe:1.0`).**
 
 
 ### or build your own docker image 
