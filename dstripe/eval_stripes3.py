@@ -455,8 +455,8 @@ if __name__ == '__main__':
         checkpoint = args.checkpoint
     assert os.path.isfile(checkpoint), checkpoint
     eprint('checkpoint:'.rjust(15, ' '), checkpoint)
-    params = params_in + '_val'
-
+    params_basename = os.path.basename(params_in) + "_val"
+    params = os.path.join(outdir, params_basename)
     eprint("=" * 100)
 
     if not os.path.isdir(valpath):

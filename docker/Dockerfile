@@ -44,7 +44,7 @@ RUN curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64
     rm /tmp/miniconda.sh
 ENV PATH=$CONDA_DIR/bin:$PATH
 RUN echo ". $CONDA_DIR/etc/profile.d/conda.sh" >> ~/.profile
-RUN conda init bash
+RUN conda init --system bash
 
 COPY --from=mrtrix301 /opt/mrtrix3 /opt/mrtrix3
 
