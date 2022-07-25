@@ -90,6 +90,8 @@ def destripe():
         '--slice_native=false',
         '--attention'
     ]
+    if app.ARGS.nthreads is not None:
+        cmd += ['--nthreads=' + str(int(app.ARGS.nthreads))]
 
     cmd += ["--device=" + app.ARGS.device]
     if app.ARGS.checkpoint:
@@ -153,6 +155,8 @@ def execute():  # pylint: disable=unused-variable
     cmd = mrffs + ['-destriped_is_field', '-no_xyscrub', 'amp_field_orig.mif', 'nn/amp.mif']
     cmd += ['nn/mask.mif', 'amp_field.mif', '-force', '-no_zclean']
     cmd += ['-device', 'cpu' if app.ARGS.device.lower() == 'cpu' else app.ARGS.device.split(',')[0]]
+    if app.ARGS.nthreads is not None:
+        cmd += ['-nthreads', str(int(app.ARGS.nthreads))]
     run.command(' '.join(cmd))
     run.command('rm ' + 'amp_field_orig.mif')
 

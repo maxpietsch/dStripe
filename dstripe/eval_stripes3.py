@@ -223,6 +223,7 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint', default='', help='use specific weights instead of last (or best) state. full path to checkpoint')
     parser.add_argument('--batch_size', type=int, default=1, help='number of volumes to process in parallel')
     parser.add_argument('-d', '--device', type=str, default='cpu', help='cpu or gpu number')
+    parser.add_argument('--nthreads', type=str, default='None', help='None: all cores or integer')
     parser.add_argument('--precision', type=str, default='float32', help='float32 or float64')
 
     parser.add_argument('--npass', type=int, default=3, help='number of recursion passes input --> field')
@@ -264,6 +265,11 @@ if __name__ == '__main__':
     if cuda and len(gpu_ids) >= 1:
         torch.cuda.set_device(gpu_ids[0])
     batch_size  = args.batch_size
+
+    n_threads = None
+    if args.nthreads is not None and args.nthreads.lower() != 'none':
+        n_threads = int(args.nthreads)
+        torch.set_num_threads(n_threads)
 
     nmirr = args.nmirr
     # nfixed = args.nfixed
@@ -402,7 +408,7 @@ if __name__ == '__main__':
     structure_e[1, 1, :] = True
     n_erode = 6
 
-    #  low pass filter for rough bias field estimation
+    # low pass filter for rough bias field estimation
     # lp_ip_filter = InplaneLowpassFilter3D(channels=1, param=5, kernel_size=15, mode="reflect",
     #                                       filter_type="gaussian").float().to(device)
     # gauss_std = 11
@@ -717,10 +723,11 @@ if __name__ == '__main__':
                     def write_result(result):
                         global Output
                         ii, result = result
+
                         Output[..., ii] = result  # Output modified only by the main process
 
                     try:
-                        pool = mp.Pool()
+                        pool = mp.Pool(n_threads)
                         for i in range(Output.shape[-1]):
                             pool.apply_async(fft_worker, args=(i,), callback=write_result)
                     finally:
