@@ -1,4 +1,4 @@
-FROM mrtrix3/mrtrix3@sha256:0de10cfddc4b5a99dc99e33cdf838c29f1cc73cf61622fafa9b355ea698493cd AS mrtrix301
+FROM mrtrix3/mrtrix3@sha256:dd9d27829e4181e7b0a5a4edd601bd2cab942f5bb1c820009a9d9c1491831c8e AS mrtrix303
 
 FROM nvidia/cuda:11.1-base-ubuntu18.04
 
@@ -50,7 +50,7 @@ ENV PATH=$CONDA_DIR/bin:$PATH
 RUN echo ". $CONDA_DIR/etc/profile.d/conda.sh" >> ~/.profile
 RUN conda init --system bash
 
-COPY --from=mrtrix301 /opt/mrtrix3 /opt/mrtrix3
+COPY --from=mrtrix303 /opt/mrtrix3 /opt/mrtrix3
 
 # create project dir
 ENV PROJECT_DIR /opt/dStripe
