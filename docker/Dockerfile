@@ -7,6 +7,10 @@ LABEL MAINTAINER="Max Pietsch <maximilian.pietsch@kcl.ac.uk>"
 # fix "mesg: ttyname failed: Inappropriate ioctl for device" warning
 RUN cp /etc/profile /root/.profile
 
+# https://github.com/NVIDIA/nvidia-docker/issues/1632
+RUN rm /etc/apt/sources.list.d/cuda.list
+RUN rm /etc/apt/sources.list.d/nvidia-ml.list
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         bzip2 \
