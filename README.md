@@ -23,10 +23,10 @@ For ease of use, we recommend using Docker as outlined below. dStripe supports C
 
 
 ```bash
-docker pull maxpietsch/dstripe:1.0
+docker pull maxpietsch/dstripe:1.1
 ```
 
-**Note: If you use the dockerhub image, replace `dstripe` in the docker command line examples wih the full image name (`maxpietsch/dstripe:1.0`).**
+**Note: If you use the dockerhub image, replace `dstripe` in the docker command line examples wih the full image name (`maxpietsch/dstripe:1.1`).**
 
 
 ### or build your own docker image 
@@ -215,12 +215,31 @@ docker run --rm --volume ~/data/:/data dstripe \
   
 ## use dStripe in singularity
 
-Conversion of the docker image to singularity currently fails, presumably due to lack of access to `/root` and incomplete shell initialisation. Pull requests or hints are welcome!
+Conversion of the Docker image to Singularity (thanks @cookpa!):
   
 ```bash
-sudo singularity build dstripe.sif docker://maxpietsch/dstripe:1.0
-singularity run -e -B ~/data:/data dstripe.sif dwidestripe /data/dwi.mif /data/mask.mif /data/dstripe_field.mif -device cpu
+sudo singularity build dstripe.sif docker://maxpietsch/dstripe:1.1
 ```
+
+Example Singularity runs with temporary data located in ~/data instead of the user's home directory:
+```bash
+# run on GPU 0 (--nv option required)
+singularity run --no-home --nv -e -B ~/data:/data dstripe.sif dwidestripe /data/dwi.mif /data/mask.mif /data/dstripe_field.mif \
+  -device 0 -scratch /data -config TmpFileDir /data 
+
+# run on the CPU, limited to 4 threads:
+singularity run --no-home -e -B ~/data:/data dstripe.sif dwidestripe /data/dwi.mif /data/mask.mif /data/dstripe_field.mif \
+  -device cpu -nthreads 4 -scratch /data -config TmpFileDir /data
+```
+Note, if the CPU load is higher than expected, try restricting it via environment variables:
+`singularity run --env MRTRIX_NTHREADS=1 --env OM_NUM_THREADS=1 --env MKL_NUM_THREADS=1 --env NUMEXPR_NUM_THREADS=1 ...`
+
+  
+## versions:
+
+- 1.1 upgraded `MRtrix3` from `3.0.1` to `3.0.3`. Respect number of threads in CPU code.
+- 1.0.1 changes to facilitate Singularity conversion from Docker
+- 1.0.0 as used for the neonatal dHCP data release 3.
 
 ## acknowledgement
 
